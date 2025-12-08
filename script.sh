@@ -13,7 +13,8 @@ else
 fi
 
 if [[ -z "${DEFAULT_GRAPH}" ]]; then
-  echo "DEFAULT_GRAPH is not set"
+  echo "DEFAULT_GRAPH is not set, using empty string"
+  sed -i -e 's#var _defaultGraph = '".*"';#var _defaultGraph = "";#g' /usr/local/apache2/htdocs/assets/js/snorql.js
 else
   sed -i -e 's#var _defaultGraph = '".*"';#var _defaultGraph = "'"${DEFAULT_GRAPH}"'";#g' /usr/local/apache2/htdocs/assets/js/snorql.js
 fi

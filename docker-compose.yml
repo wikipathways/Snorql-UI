@@ -4,7 +4,7 @@ services:
     restart: always
     container_name: wikipathways-virtuoso
     environment:
-      - DBA_PASSWORD=dbaisapasswordthatshouldbeupdated
+      - DBA_PASSWORD=dba123
       - SPARQL_UPDATE=false
     ports:
       - "8900:8890"
@@ -19,7 +19,7 @@ services:
       - SNORQL_ENDPOINT=http://localhost:8900/sparql
       - SNORQL_EXAMPLES_REPO=https://github.com/wikipathways/SPARQLQueries
       - SNORQL_TITLE=WikiPathways SNORQL UI
-      - DEFAULT_GRAPH=http://rdf.wikipathways.org/
+      - DEFAULT_GRAPH=
     ports:
       - "8088:80"
       - "4430:443"
