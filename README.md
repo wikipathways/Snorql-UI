@@ -196,6 +196,53 @@ quit;
 ```
 
 
+## Enabling CORS on Virtuoso
+
+For browser-based SPARQL queries to work, CORS (Cross-Origin Resource Sharing) must be enabled on Virtuoso's `/sparql` endpoint. Without CORS, browsers block requests from web pages (e.g., Snorql-UI at `localhost:8088`) to different origins (e.g., Virtuoso at `localhost:8890`).
+
+### Quick Setup
+
+After starting Virtuoso, run the CORS configuration script:
+
+```bash
+./scripts/enable-cors.sh
+```
+
+### Production Setup
+
+For production, restrict CORS to your specific domain:
+
+```bash
+CORS_ORIGINS="http://yourdomain.com" ./scripts/enable-cors.sh
+```
+
+### Custom Configuration
+
+The script supports these environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VIRTUOSO_CONTAINER` | `my-virtuoso` | Docker container name |
+| `VIRTUOSO_ISQL_PORT` | `1111` | ISQL connection port |
+| `VIRTUOSO_USER` | `dba` | Database username |
+| `VIRTUOSO_PASSWORD` | `dba123` | Database password |
+| `CORS_ORIGINS` | `*` | Allowed origins (`*` = all) |
+
+For persistent configuration, edit `scripts/config.sh` instead of setting environment variables each time. Scripts will source this file automatically if present.
+
+### Verification
+
+Test CORS from your browser console:
+
+```javascript
+fetch('http://localhost:8890/sparql?query=SELECT+*+WHERE+{?s+?p+?o}+LIMIT+1')
+  .then(r => r.text())
+  .then(console.log)
+```
+
+If CORS is working, you'll see SPARQL results. If not, you'll see a CORS error.
+
+
 ## WikiPathways Production Setup
 
 The repository includes production configuration files used by WikiPathways. These serve as both a reference implementation and operational documentation.

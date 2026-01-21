@@ -18,6 +18,12 @@ services:
   # Remove this service if you're connecting to an external SPARQL endpoint.
   # If using this service, load your RDF data into Virtuoso after startup.
   # See scripts/load-rdf-example.sh for data loading instructions.
+  #
+  # IMPORTANT: Enable CORS after Virtuoso starts (required for browser queries):
+  #   ./scripts/enable-cors.sh
+  #
+  # For production, restrict CORS to specific origins:
+  #   CORS_ORIGINS="http://yourdomain.com" ./scripts/enable-cors.sh
   virtuoso:
     image: openlink/virtuoso-opensource-7:7.2.11
     restart: always
