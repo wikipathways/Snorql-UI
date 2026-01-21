@@ -42,6 +42,42 @@ Live Demo of Snorql-UI:  [Demo 1](https://wikipathways.github.io/Snorql-UI) 	 [D
   https://api.github.com/repos/egonw/SARS-CoV-2-Queries/contents/sparql
 
 
+## SPARQL Examples Repository Structure
+
+The examples panel fetches `.rq` files from GitHub repositories. Here's how to structure your repository:
+
+### File Conventions
+- Use `.rq` extension for SPARQL query files
+- Use descriptive filenames (spaces allowed): `Get all metabolites.rq`
+- First line comment becomes the query description in the panel
+
+### Folder Organization
+
+Organize queries into folders by category:
+
+```
+sparql-queries/
+├── Basic/
+│   ├── List all classes.rq
+│   └── Count triples.rq
+├── Metabolites/
+│   ├── Get all metabolites.rq
+│   └── Metabolites by pathway.rq
+└── Advanced/
+    └── Federated query example.rq
+```
+
+### Tree View Behavior
+- Folders become expandable nodes in the examples panel
+- Files appear as clickable query items
+- Nested folders are fully supported
+- Alphabetical ordering within each level
+
+### Example Repositories
+- WikiPathways: https://github.com/wikipathways/SPARQLQueries
+- SARS-CoV-2: https://api.github.com/repos/egonw/SARS-CoV-2-Queries/contents/sparql
+
+
 ## Get a URL for a query with JavaScript
 
 - if you want to get a URL for your query (automatically generated for example) without using the permanent link, then you can use the following JavaScript code:
@@ -173,6 +209,20 @@ To customize branding:
 1. Replace logo images in `assets/images/`
 2. Edit the footer section in `index.html`
 3. Update the page title in `index.html`
+
+### Logo Replacement
+
+The default logo is WikiPathways-branded. For your own deployment:
+
+1. Create a logo image (recommended: 200x50 pixels, PNG format)
+2. Replace `assets/images/wikipathways-snorql-logo.png` with your logo
+3. Or update `index.html` line 40 to reference a different logo file
+
+For Docker deployments, mount your custom logo:
+```yaml
+volumes:
+  - ./my-logo.png:/usr/share/nginx/html/assets/images/wikipathways-snorql-logo.png
+```
 
 
 ## Loading RDF Data
