@@ -502,9 +502,35 @@ docker exec -it my-virtuoso /bin/bash -c "cd /database/data && ./load.sh load.lo
 # 7. Access at http://localhost:8088
 ```
 
+### Automated Data Loading with Quality Control
+
+For automated/scheduled data updates, use `scripts/data-loader.sh` as a template. This script includes:
+
+- **Download verification** - Checks each file download succeeds
+- **Turtle validation** - Uses `rapper` to validate RDF syntax before loading
+- **Load verification** - Confirms all files reached `ll_state = 2` (success)
+- **Dry-run mode** - Validate without loading (`--dry-run`)
+
+```bash
+# Configure for your data source
+export DATA_SOURCE="http://your-data-server.org/rdf"
+export DATA_FILES="mydata.ttl vocabulary.ttl"
+export VIRTUOSO_CONTAINER="my-virtuoso"
+export VIRTUOSO_PASSWORD="dba123"
+export GRAPH_URI="http://example.org/graph/"
+
+# Run the loader
+./scripts/data-loader.sh
+
+# Or validate only (dry run)
+./scripts/data-loader.sh --dry-run
+```
+
+Edit the script's CONFIGURATION section to set defaults for your deployment, then schedule with cron for automatic updates.
+
 ### Tips
 
 - **Multiple data files:** Add multiple `ld_dir()` commands in `load.sh` or use wildcards
-- **Automated loading:** Create a script similar to `scripts/wikipathways-loader.sh` for scheduled updates
+- **Turtle validation:** Install `raptor2-utils` (`sudo apt-get install raptor2-utils`) for syntax validation
 - **Federated queries:** The template includes grants for SPARQL federation (SERVICE keyword)
 - **Namespace prefixes:** Also update `assets/js/namespaces.js` so URIs display as compact QNames in the UI
