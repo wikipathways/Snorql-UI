@@ -13,6 +13,9 @@ docker-compose.override.yml
 *.swp
 *~
 
+# Claude Code local config
+CLAUDE.md
+
 # OS files
 .DS_Store
 Thumbs.db
