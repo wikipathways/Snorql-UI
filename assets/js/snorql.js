@@ -30,6 +30,11 @@ function getCookie(cname) {
     return "";
 }
 
+function clearLegacyCookies() {
+    document.cookie = "endpoint=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    document.cookie = "examplesrepo=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+}
+
 function findGetParameter(parameterName) {
     var result = null,
         tmp = [];
@@ -44,13 +49,13 @@ function findGetParameter(parameterName) {
 }
 
 function changeEndpoint() {
-    var newEp = document.getElementById("endpoint").value;
-    setCookie("endpoint", newEp);
+    // Removed: no longer persists to cookie
+    // Endpoint changes are temporary (session only)
 }
 
 function changeExamplesRepo() {
-    var newEx = document.getElementById("examples-repo").value;
-    setCookie("examplesrepo", newEx);
+    // Removed: no longer persists to cookie
+    // Changes are temporary (session only)
 }
 
 function getPrefixes(){
@@ -222,27 +227,19 @@ function fetchExamples(suffix="") {
 }
 
 function start(){
+    // Clear legacy cookies from previous versions
+    clearLegacyCookies();
 
+    // Priority: URL parameter > configured default
     var getvar_endpoint = findGetParameter("endpoint");
-    var ep = getCookie('endpoint');
-    
     if (getvar_endpoint != null) {
-        console.log("snorql");
         document.getElementById("endpoint").value = getvar_endpoint;
-    } else if (ep != ""){
-        _endpoint = ep;
-        document.getElementById('endpoint').value = ep;
-    }else{
+    } else {
         document.getElementById('endpoint').value = _endpoint;
     }
 
-    var ex = getCookie('examplesrepo');
-    if (ex != "") {
-        _examples_repo = ex;
-        document.getElementById('examples-repo').value = ex;
-    }else{
-        document.getElementById('examples-repo').value = _examples_repo;
-    }
+    // Examples repo: use configured default
+    document.getElementById('examples-repo').value = _examples_repo;
 
     fetchExamples();
     fetchExamples("-fs");
