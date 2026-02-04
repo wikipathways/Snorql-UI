@@ -22,3 +22,9 @@ jobs:
         with:
           context: .
           push: false
+
+      - name: Validate Docker Compose configuration
+        run: |
+          cp .env.example .env
+          cp docker-compose.example.yml docker-compose.yml
+          docker compose config --quiet
