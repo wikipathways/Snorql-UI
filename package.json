@@ -22,7 +22,7 @@
     "wikipathways"
   ],
   "author": "WikiPathways",
-  "license": "MIT",
+  "license": "GPL-3.0-only",
   "bugs": {
     "url": "https://github.com/wikipathways/Snorql-UI/issues"
   },
