@@ -1,3 +1,6 @@
+[![CI](https://github.com/wikipathways/Snorql-UI/actions/workflows/ci.yml/badge.svg)](https://github.com/wikipathways/Snorql-UI/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ## Snorql-UI - A SPARQL Explorer
 
 Simple SPARQL query interface based on the original idea of [kurtjx/SNORQL](https://github.com/kurtjx/SNORQL) and adapted from the fork [eccenca/SNORQL](https://github.com/eccenca/SNORQL) 

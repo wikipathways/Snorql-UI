@@ -1,0 +1,5 @@
+assets/js/jquery.min.js
+assets/js/bootstrap.min.js
+assets/js/bootstrap-treeview.min.js
+node_modules/
+coverage/

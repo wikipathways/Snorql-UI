@@ -1,3 +1,9 @@
+# Dependencies
+node_modules/
+
+# Test coverage
+coverage/
+
 # Temporary files
 tmp/
 test-setup/
