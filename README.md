@@ -27,62 +27,11 @@ Live Demo of Snorql-UI:  [Demo 1](https://wikipathways.github.io/Snorql-UI) 	 [D
 Want to use Snorql-UI with your own RDF database? See [FORK.md](FORK.md) for step-by-step setup instructions covering configuration, SPARQL examples, and deployment options.
 
 
-## GitHub Examples URL
+## SPARQL examples
 
-- If you have the SPARQL queries directly inside the repo, then use the full the URL of the repo like the following:
+Snorql-UI loads example queries from any public GitHub repository containing `.rq` files. Queries can include comment headers for titles, descriptions, categories, and user-editable parameters.
 
-  [https://github.com/wikipathways/SPARQLQueries](https://github.com/wikipathways/SPARQLQueries)
-
-
-- But in case the SPARQL queries are inside a folder in the repository, then you need to provide a GitHub API URL for that folder and that is constructed as follows:
-
-  If the URL of the folder of the queries is this (for example):
-
-  https://github.com/egonw/SARS-CoV-2-Queries/tree/main/sparql
-
-  Then the URL template you should use is:
-
-  https://api.github.com/repos/{OWNER_USER}/{REPOSITORY_NAME}/contents/{FOLDER_PATH}
-
-  And the final URL becomes like this:
-
-  https://api.github.com/repos/egonw/SARS-CoV-2-Queries/contents/sparql
-
-
-## SPARQL Examples Repository Structure
-
-The examples panel fetches `.rq` files from GitHub repositories. Here's how to structure your repository:
-
-### File Conventions
-- Use `.rq` extension for SPARQL query files
-- Use descriptive filenames (spaces allowed): `Get all metabolites.rq`
-- First line comment becomes the query description in the panel
-
-### Folder Organization
-
-Organize queries into folders by category:
-
-```
-sparql-queries/
-├── Basic/
-│   ├── List all classes.rq
-│   └── Count triples.rq
-├── Metabolites/
-│   ├── Get all metabolites.rq
-│   └── Metabolites by pathway.rq
-└── Advanced/
-    └── Federated query example.rq
-```
-
-### Tree View Behavior
-- Folders become expandable nodes in the examples panel
-- Files appear as clickable query items
-- Nested folders are fully supported
-- Alphabetical ordering within each level
-
-### Example Repositories
-- WikiPathways: https://github.com/wikipathways/SPARQLQueries
-- SARS-CoV-2: https://api.github.com/repos/egonw/SARS-CoV-2-Queries/contents/sparql
+See [EXAMPLES.md](EXAMPLES.md) for how to structure your examples repository.
 
 
 ## Get a URL for a query with JavaScript
