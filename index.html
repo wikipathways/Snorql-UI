@@ -26,7 +26,8 @@
 	
 	<script src="assets/js/bootstrap-treeview.min.js"></script>
     <script src="assets/js/sparql.js"></script>
-    <script src="assets/js/namespaces.js"></script>
+    <script src="assets/js/mustache.min.js"></script>
+    <script src="assets/js/config.js"></script>
     <script src="assets/js/snorql.js"></script>
 	<script src="assets/js/script.js"></script>
   </head>
@@ -45,7 +46,13 @@
           <form class="navbar-form navbar-right">
             <div class="input-group">
 				<span class="input-group-addon">SPARQL Endpoint</span>
-				<input size="50" class="form-control mr-sm-2" name="endpoint" id="endpoint" onchange="changeEndpoint();" />		
+				<input size="50" class="form-control mr-sm-2" name="endpoint" id="endpoint"
+				       onchange="changeEndpoint();"
+				       onkeydown="if(event.key==='Enter'){event.preventDefault();changeEndpoint();}" />
+				<span class="input-group-addon" style="background: transparent; border: none; padding: 0 8px;">
+				    <span id="endpoint-health-dot" class="endpoint-dot dot-checking"
+				          data-toggle="tooltip" data-placement="bottom" title="Checking endpoint..."></span>
+				</span>
             </div>
           </form>
         </div><!--/.navbar-collapse -->
@@ -59,14 +66,19 @@
 			<div class="col-md-8">
 				
 				<div class="row">
-					<div class="col-md-12">		
+					<div class="col-md-12">
+						<div id="param-panel" style="display: none;"></div>
 						<h4>SPARQL Query:</h4>
 						<textarea name="query" id="querytext" rows="9"></textarea>
 						<script>
 							var editor = CodeMirror.fromTextArea(document.getElementById("querytext"), {
 							  lineNumbers: true,
 							  mode: "application/sparql-query",
-							  matchBrackets: true
+							  matchBrackets: true,
+							  extraKeys: {
+							    'Ctrl-Enter': function(cm) { jQuery('#query-button').click(); },
+							    'Cmd-Enter': function(cm) { jQuery('#query-button').click(); }
+							  }
 							});
 						</script>
 					</div>
@@ -80,6 +92,7 @@
 						<input id="export-json" type="button" class="btn btn-primary" value="Export JSON" />
 						<input id="export-xml" type="button" class="btn btn-info" value="Export XML" />
 						<input id="generate-permalink" type="button" class="btn btn-secondary" value="Get Permalink" />
+						<button id="copy-button" type="button" class="btn btn-default"><i class="glyphicon glyphicon-copy"></i> Copy</button>
 						<input id="enter-fullscreen" type="button" class="btn btn-dark" value="Fullscreen Mode" />
 						<input id="show-prefixes" type="button" class="btn btn-light" value="Show Prefixes" />
 					</div>
@@ -102,11 +115,12 @@
 						<!-- <form> -->
 						<div class="form-group">
 						  <label for="input-search" class="sr-only">Search Tree:</label>
-						  <input type="text" class="form-control" id="input-search" placeholder="Type part of the query file name to search for..." value="">
+						  <input type="text" class="form-control" id="input-search" placeholder="Search by title, description, or category..." value="">
 						</div>
 						<button type="button" class="btn btn-success" id="btn-search">Search</button>
 						<button type="button" class="btn btn-default" id="btn-clear-search">Clear</button>
 						<!-- </form> -->
+						<div id="category-filter" class="category-filter"></div>
 						<hr/>
 						<div class="list-group" id="examples"></div>
 				  </div>
@@ -187,11 +201,12 @@
 			<!-- <form> -->
 			<div class="form-group">
 			  <label for="input-search" class="sr-only">Search Tree:</label>
-			  <input type="text" class="form-control" id="input-search-fs" placeholder="Type part of the query file name to search for..." value="">
+			  <input type="text" class="form-control" id="input-search-fs" placeholder="Search by title, description, or category..." value="">
 			</div>
 			<button type="button" class="btn btn-success" id="btn-search-fs">Search</button>
 			<button type="button" class="btn btn-default" id="btn-clear-search-fs">Clear</button>
 			<!-- </form> -->
+			<div id="category-filter-fs" class="category-filter"></div>
 			<hr/>
 			<div class="list-group" id="examples-fs"></div> 
 		  </div>

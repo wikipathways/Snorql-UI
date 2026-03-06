@@ -10,7 +10,6 @@
   },
   "globals": {
     "SPARQL": "writable",
-    "snorql_namespacePrefixes": "writable",
     "Snorql": "writable",
     "CodeMirror": "readonly",
     "Cookies": "readonly",

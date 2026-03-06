@@ -1,6 +1,22 @@
 
 (function ($) {
 
+function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+    }
+    // Fallback for non-secure contexts (HTTP deployments)
+    var textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return Promise.resolve();
+}
+
 jQuery(document).ready(function() {
 
         var cookieDecision = getCookie('cookieDecision');
@@ -74,19 +90,22 @@ jQuery(document).ready(function() {
 
         var search = function(e) {
           var pattern = $('#input-search').val();
-          var options = {
-            ignoreCase: true,
-            exactMatch: false,
-            revealResults: true
-          };
-          var results = $('#examples').treeview('search', [ pattern, options ]);
+          if (pattern) {
+              searchExamples(pattern, '');
+          }
         }
 
         $('#btn-search').on('click', search);
 
         $('#btn-clear-search').on('click', function (e) {
-          $('#examples').treeview('clearSearch');
           $('#input-search').val('');
+          // Restore full tree
+          if (typeof _fullTreeData !== 'undefined' && _fullTreeData) {
+              initTreeview(JSON.parse(JSON.stringify(_fullTreeData)), '');
+          }
+          // Reset category filter
+          $('#category-filter button').removeClass('active');
+          $('#category-filter button[data-category="all"]').addClass('active');
         });
 
         //---------------- Search funcionality ends ------------------------
@@ -95,22 +114,38 @@ jQuery(document).ready(function() {
 
         var searchfs = function(e) {
           var pattern = $('#input-search-fs').val();
-          var options = {
-            ignoreCase: true,
-            exactMatch: false,
-            revealResults: true
-          };
-          var results = $('#examples-fs').treeview('search', [ pattern, options ]);
+          if (pattern) {
+              searchExamples(pattern, '-fs');
+          }
         }
 
         $('#btn-search-fs').on('click', searchfs);
 
         $('#btn-clear-search-fs').on('click', function (e) {
-          $('#examples-fs').treeview('clearSearch');
           $('#input-search-fs').val('');
+          // Restore full tree
+          if (typeof _fullTreeData !== 'undefined' && _fullTreeData) {
+              initTreeview(JSON.parse(JSON.stringify(_fullTreeData)), '-fs');
+          }
+          // Reset category filter
+          $('#category-filter-fs button').removeClass('active');
+          $('#category-filter-fs button[data-category="all"]').addClass('active');
         });
 
         //---------------- Search funcionality Fullscreen ends ------------------------
+
+        jQuery("#copy-button").on("click", function() {
+            var query = editor.getDoc().getValue();
+            var $btn = $(this);
+            var originalHtml = $btn.html();
+
+            copyToClipboard(query).then(function() {
+                $btn.html('<i class="glyphicon glyphicon-ok"></i> Copied!');
+                setTimeout(function() {
+                    $btn.html(originalHtml);
+                }, 1500);
+            });
+        });
 
 		jQuery("#reset-button").on("click",function(){
             editor.getDoc().setValue("");

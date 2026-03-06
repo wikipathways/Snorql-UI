@@ -22,6 +22,9 @@ Live Demo of Snorql-UI:  [Demo 1](https://wikipathways.github.io/Snorql-UI) 	 [D
 6.  Generate short URLs for your queries for easy sharing.
 7.  No need for any backend programming language!! it is totally a front end application.
 
+## Fork Guide
+
+Want to use Snorql-UI with your own RDF database? See [FORK.md](FORK.md) for step-by-step setup instructions covering configuration, SPARQL examples, and deployment options.
 
 
 ## GitHub Examples URL
@@ -259,7 +262,7 @@ Create the directory first: `mkdir virtuoso-data`
 | Page title | `index.html` | `<title>` tag |
 | Logo | `assets/images/` | Replace logo files |
 | Footer | `index.html` | Edit footer section |
-| Namespaces | `assets/js/namespaces.js` | `snorql_namespacePrefixes` object |
+| Namespaces | `assets/js/config.js` | `namespaces` object in `SNORQL_CONFIG` |
 | Bitly token | `assets/js/script.js` | `accessToken` (line 180) |
 
 ### Branding
@@ -471,7 +474,7 @@ your-project/
 - [ ] **SNORQL_EXAMPLES_REPO** in `.env` - Your GitHub queries repository
 - [ ] **SNORQL_TITLE** in `.env` - Browser tab title
 - [ ] **VIRTUOSO_PASSWORD** in `.env` - Secure password for production
-- [ ] **Optional:** `assets/js/namespaces.js` - For UI prefix expansion in results
+- [ ] **Optional:** `assets/js/config.js` - Add domain-specific namespace prefixes to `namespaces` object
 
 ### Example: Minimal Custom Setup
 
@@ -537,4 +540,4 @@ Edit the script's CONFIGURATION section to set defaults for your deployment, the
 - **Multiple data files:** Add multiple `ld_dir()` commands in `load.sh` or use wildcards
 - **Turtle validation:** Install `raptor2-utils` (`sudo apt-get install raptor2-utils`) for syntax validation
 - **Federated queries:** The template includes grants for SPARQL federation (SERVICE keyword)
-- **Namespace prefixes:** Also update `assets/js/namespaces.js` so URIs display as compact QNames in the UI
+- **Namespace prefixes:** Add prefixes to the `namespaces` object in `assets/js/config.js` so URIs display as compact QNames in the UI

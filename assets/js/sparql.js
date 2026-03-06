@@ -259,24 +259,11 @@ SPARQL.Query = function(service, priority) {
 	function _create_json(text) {
 		if (!text)
 			return null;
-		// make sure this is safe JSON
-		// see: http://www.ietf.org/internet-drafts/draft-crockford-jsonorg-json-03.txt
-		
-		// (1) strip out quoted strings
-		var no_strings = text.replace(/"(\\.|[^"\\])*"/g, '');
-		// (2) make sure that all the characters are explicitly part of the JSON grammar
-		// (in particular, note as discussed in the IETF submission, there are no assignments
-		//  or function invocations allowed by this reg. exp.)
-		var hasBadCharacter = /[^,:{}\[\]0-9.\-+Eaeflnr-u \n\r\t]/.test(no_strings);
-		// (3) evaluate the JSON string, returning its contents
-		if (!hasBadCharacter) {
-			try {
-				return eval('(' + text + ')');
-			} catch (e) {
-				return null;
-			}
+		try {
+			return JSON.parse(text);
+		} catch (e) {
+			return null;
 		}
-		return null; 
 	}	
 
 	function clone_obj(o) {

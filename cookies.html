@@ -22,7 +22,7 @@
 	<script type="text/javascript" src="assets/codemirror/addon/edit/matchbrackets.js"></script>
 	<script type="text/javascript" src="assets/codemirror/sparql.js"></script>		
 
-	<script type="text/javascript" src="assets/js/namespaces.js"></script>	
+	<script type="text/javascript" src="assets/js/config.js"></script>
 	<script type="text/javascript" src="assets/js/snorql.js"></script>
 	
   </head>
@@ -115,7 +115,7 @@
 	  </div>
 	</footer>
 	<script type="text/javascript">
-		$('#poweredby').text( _poweredByLabel);
+		$('#poweredby').text(window.SNORQL_CONFIG.poweredByLabel);
 	</script>
   </body>
 </html>

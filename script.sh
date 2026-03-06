@@ -1,26 +1,28 @@
 #!/bin/bash
 
-if [[ -z "${SNORQL_ENDPOINT}" ]]; then
+CONFIG_FILE="/usr/local/apache2/htdocs/assets/js/config.js"
+
+if [[ -n "${SNORQL_ENDPOINT}" ]]; then
+  sed -i "s#endpoint: \".*\"#endpoint: \"${SNORQL_ENDPOINT}\"#" "$CONFIG_FILE"
+else
   echo "SNORQL_ENDPOINT is not set"
-else
-  sed -i -e 's#var _endpoint = '".*"';#var _endpoint = "'"${SNORQL_ENDPOINT}"'";#g' /usr/local/apache2/htdocs/assets/js/snorql.js
 fi
 
-if [[ -z "${SNORQL_EXAMPLES_REPO}" ]]; then
+if [[ -n "${SNORQL_EXAMPLES_REPO}" ]]; then
+  sed -i "s#examplesRepo: \".*\"#examplesRepo: \"${SNORQL_EXAMPLES_REPO}\"#" "$CONFIG_FILE"
+else
   echo "SNORQL_EXAMPLES_REPO is not set"
-else
-  sed -i -e 's#var _examples_repo = '".*"';#var _examples_repo = "'"${SNORQL_EXAMPLES_REPO}"'";#g' /usr/local/apache2/htdocs/assets/js/snorql.js
 fi
 
-if [[ -z "${DEFAULT_GRAPH}" ]]; then
+if [[ -n "${DEFAULT_GRAPH}" ]]; then
+  sed -i "s#defaultGraph: \".*\"#defaultGraph: \"${DEFAULT_GRAPH}\"#" "$CONFIG_FILE"
+else
   echo "DEFAULT_GRAPH is not set, using empty string"
-  sed -i -e 's#var _defaultGraph = '".*"';#var _defaultGraph = "";#g' /usr/local/apache2/htdocs/assets/js/snorql.js
-else
-  sed -i -e 's#var _defaultGraph = '".*"';#var _defaultGraph = "'"${DEFAULT_GRAPH}"'";#g' /usr/local/apache2/htdocs/assets/js/snorql.js
 fi
 
-if [[ -z "${SNORQL_TITLE}" ]]; then
-  echo "SNORQL_TITLE is not set"
+if [[ -n "${SNORQL_TITLE}" ]]; then
+  sed -i "s#title: \".*\"#title: \"${SNORQL_TITLE}\"#" "$CONFIG_FILE"
+  sed -i "s#<title>.*</title>#<title>${SNORQL_TITLE}</title>#g" /usr/local/apache2/htdocs/index.html
 else
-  sed -i -e 's#<title>'".*"'</title>#<title>'"${SNORQL_TITLE}"'</title>#g' /usr/local/apache2/htdocs/index.html
+  echo "SNORQL_TITLE is not set"
 fi

@@ -88,3 +88,124 @@ footer p{
 .buttons-holder .btn{
     margin: 3px;
 }
+
+.query-spinner {
+    text-align: center;
+    padding: 40px;
+}
+
+.query-spinner .spinner {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    border: 3px solid #ddd;
+    border-top: 3px solid #5cb85c;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.query-spinner p {
+    margin-top: 10px;
+    color: #777;
+}
+
+/* Category filter buttons */
+.category-filter {
+    margin: 8px 0;
+}
+
+.category-filter .btn {
+    margin: 2px;
+}
+
+.category-filter .btn.active {
+    background-color: #5cb85c;
+    border-color: #4cae4c;
+    color: #fff;
+}
+
+/* Examples treeview node hover transition */
+.list-group-item {
+    transition: background-color 0.15s ease-in-out;
+}
+
+/* Friendly SPARQL error display */
+.error-hint {
+    font-size: 13px;
+    margin-top: 8px;
+    color: #555;
+}
+
+.error-details-toggle {
+    cursor: pointer;
+    text-decoration: underline;
+    color: #31708f;
+    font-size: 13px;
+}
+
+.error-details-toggle:hover {
+    color: #245269;
+}
+
+.error-raw {
+    display: none;
+    margin-top: 10px;
+    font-family: monospace;
+    font-size: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 10px;
+}
+
+/* Parameter panel */
+#param-panel { margin-bottom: 10px; }
+#param-panel .panel { margin-bottom: 0; }
+#param-panel .panel-heading { padding: 8px 15px; }
+#param-panel .panel-body { padding: 10px 15px; }
+#param-panel .form-group { margin-bottom: 8px; }
+#param-panel .form-group:last-child { margin-bottom: 0; }
+#param-panel label { font-weight: 600; font-size: 13px; }
+
+/* Examples panel error/warning messages */
+#examples .alert-warning,
+#examples-fs .alert-warning {
+    font-size: 13px;
+}
+
+/* Endpoint health indicator dot */
+.endpoint-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    vertical-align: middle;
+    cursor: default;
+}
+
+.dot-checking {
+    background-color: #999;
+    animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+.dot-green {
+    background-color: #5cb85c;
+}
+
+.dot-amber {
+    background-color: #f0ad4e;
+}
+
+.dot-red {
+    background-color: #d9534f;
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
