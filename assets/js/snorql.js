@@ -4,6 +4,8 @@ var _paramMode = false;
 var _paramIgnoreChange = false;
 var _currentTemplate = null;
 var _currentParams = null;
+var _pathwayCache = null;
+var _pathwayCachePromise = null;
 
 function setCookie(cname, cvalue){
     var d = new Date();
@@ -82,6 +84,12 @@ function parseRqHeaders(content) {
         var descMatch = line.match(/^#\s*description:\s*(.+)/i);
         if (descMatch) {
             descriptionLines.push(descMatch[1].trim());
+            continue;
+        }
+
+        // Continuation line: "#   some text" (indented, no keyword)
+        if (descriptionLines.length > 0 && line.match(/^#\s{2,}\S/)) {
+            descriptionLines.push(line.replace(/^#\s+/, ''));
             continue;
         }
 
@@ -193,16 +201,174 @@ function stripHeaders(content) {
     return lines.slice(startIndex).join('\n');
 }
 
+function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
+
+function fetchPathwayList() {
+    if (_pathwayCache) {
+        return $.Deferred().resolve(_pathwayCache).promise();
+    }
+    if (_pathwayCachePromise) {
+        return _pathwayCachePromise;
+    }
+
+    var endpoint = document.getElementById('endpoint').value.trim();
+    var sparql = 'PREFIX dcterms: <http://purl.org/dc/terms/>\n' +
+        'PREFIX dc: <http://purl.org/dc/elements/1.1/>\n' +
+        'PREFIX wp: <http://vocabularies.wikipathways.org/wp#>\n' +
+        'SELECT DISTINCT (str(?wpId) as ?id) (str(?title) as ?name) (str(?orgName) as ?species)\n' +
+        'WHERE { ?pw a wp:Pathway ; dcterms:identifier ?wpId ; dc:title ?title ; wp:organismName ?orgName . }\n' +
+        'ORDER BY ?wpId';
+
+    var url = endpoint + '?query=' + encodeURIComponent(sparql) + '&output=json';
+
+    _pathwayCachePromise = $.ajax({
+        url: url,
+        dataType: 'json'
+    }).then(function(json) {
+        var list = [];
+        if (json && json.results && json.results.bindings) {
+            for (var i = 0; i < json.results.bindings.length; i++) {
+                var b = json.results.bindings[i];
+                list.push({
+                    id: b.id ? b.id.value : '',
+                    title: b.name ? b.name.value : '',
+                    species: b.species ? b.species.value : ''
+                });
+            }
+        }
+        _pathwayCache = list;
+        _pathwayCachePromise = null;
+        return list;
+    }, function() {
+        _pathwayCachePromise = null;
+        return [];
+    });
+
+    return _pathwayCachePromise;
+}
+
+function initPathwayAutocomplete() {
+    var $input = $('#param-pathwayId');
+    var $wrapper = $input.closest('.pathway-autocomplete-wrapper');
+    var $dropdown = $wrapper.find('.pathway-dropdown');
+    var highlightIndex = -1;
+
+    function renderDropdown(items) {
+        if (items.length === 0) {
+            $dropdown.hide();
+            return;
+        }
+        var html = '';
+        var limit = Math.min(items.length, 50);
+        for (var i = 0; i < limit; i++) {
+            var speciesLabel = items[i].species ? ' <span class="pathway-option-species">[' + escapeHtml(items[i].species) + ']</span>' : '';
+            html += '<div class="pathway-option" data-id="' + escapeHtml(items[i].id) + '">' +
+                '<span class="pathway-option-id">' + escapeHtml(items[i].id) + '</span> ' +
+                '<span class="pathway-option-title">' + escapeHtml(items[i].title) + '</span>' +
+                speciesLabel +
+                '</div>';
+        }
+        if (items.length > 50) {
+            html += '<div class="pathway-option-more">' + (items.length - 50) + ' more — keep typing to narrow</div>';
+        }
+        $dropdown.html(html).show();
+        highlightIndex = -1;
+    }
+
+    function updateHighlight() {
+        $dropdown.find('.pathway-option').removeClass('highlighted');
+        if (highlightIndex >= 0) {
+            var $opts = $dropdown.find('.pathway-option');
+            if (highlightIndex < $opts.length) {
+                $opts.eq(highlightIndex).addClass('highlighted');
+                // Scroll into view
+                var opt = $opts[highlightIndex];
+                if (opt.scrollIntoView) {
+                    opt.scrollIntoView({ block: 'nearest' });
+                }
+            }
+        }
+    }
+
+    function selectItem(id) {
+        $input.val(id);
+        $dropdown.hide();
+        highlightIndex = -1;
+        $input.trigger('change');
+    }
+
+    $input.on('focus', function() {
+        this.select();
+    });
+
+    $input.on('input', function() {
+        var val = $input.val().trim().toLowerCase();
+        if (!val) {
+            $dropdown.hide();
+            return;
+        }
+        fetchPathwayList().then(function(list) {
+            var filtered = [];
+            for (var i = 0; i < list.length; i++) {
+                if (list[i].id.toLowerCase().indexOf(val) !== -1 ||
+                    list[i].title.toLowerCase().indexOf(val) !== -1) {
+                    filtered.push(list[i]);
+                }
+            }
+            renderDropdown(filtered);
+        });
+    });
+
+    $input.on('keydown', function(e) {
+        if (!$dropdown.is(':visible')) return;
+        var $opts = $dropdown.find('.pathway-option');
+        if (e.keyCode === 40) { // Down
+            e.preventDefault();
+            highlightIndex = Math.min(highlightIndex + 1, $opts.length - 1);
+            updateHighlight();
+        } else if (e.keyCode === 38) { // Up
+            e.preventDefault();
+            highlightIndex = Math.max(highlightIndex - 1, 0);
+            updateHighlight();
+        } else if (e.keyCode === 13) { // Enter
+            e.preventDefault();
+            if (highlightIndex >= 0 && highlightIndex < $opts.length) {
+                selectItem($opts.eq(highlightIndex).data('id'));
+            }
+        } else if (e.keyCode === 27) { // Escape
+            $dropdown.hide();
+            highlightIndex = -1;
+        }
+    });
+
+    $dropdown.on('click', '.pathway-option', function() {
+        selectItem($(this).data('id'));
+    });
+
+    // Close dropdown on click outside
+    $(document).on('mousedown', function(e) {
+        if (!$(e.target).closest('.pathway-autocomplete-wrapper').length) {
+            $dropdown.hide();
+            highlightIndex = -1;
+        }
+    });
+
+    // Pre-fetch the pathway list
+    fetchPathwayList();
+}
+
 function buildParamPanel(params, templateContent) {
     var $panel = $('#param-panel');
-    var html = '<div class="panel panel-info">';
-    html += '<div class="panel-heading"><strong>Query Parameters</strong></div>';
-    html += '<div class="panel-body">';
+    var html = '<div class="param-row">';
 
     for (var i = 0; i < params.length; i++) {
         var p = params[i];
-        html += '<div class="form-group">';
-        html += '<label for="param-' + p.name + '">' + p.label + '</label>';
+        html += '<div class="param-item">';
+        html += '<label for="param-' + p.name + '">' + p.label + '</label> ';
 
         if (p.type === 'enum' && p.options) {
             html += '<select class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '">';
@@ -211,6 +377,11 @@ function buildParamPanel(params, templateContent) {
                 html += '<option value="' + p.options[j] + '"' + selected + '>' + p.options[j] + '</option>';
             }
             html += '</select>';
+        } else if (p.name === 'pathwayId') {
+            html += '<div class="pathway-autocomplete-wrapper">';
+            html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + escapeHtml(p.defaultValue) + '" placeholder="Type pathway ID or name..." autocomplete="off">';
+            html += '<div class="pathway-dropdown"></div>';
+            html += '</div>';
         } else {
             html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + p.defaultValue + '" placeholder="' + p.label + '">';
         }
@@ -218,8 +389,13 @@ function buildParamPanel(params, templateContent) {
         html += '</div>';
     }
 
-    html += '</div></div>';
+    html += '</div>';
     $panel.html(html).show();
+
+    // Initialize pathway autocomplete if pathwayId param is present
+    if ($('#param-pathwayId').length) {
+        initPathwayAutocomplete();
+    }
 
     // Trigger initial substitution with defaults
     var substituted = substituteParams(templateContent, params);
@@ -271,7 +447,9 @@ function mainAjax(link, repo) {
                 if (segments.length == 1) {
                     node.text = segments[0];
                     node.originalFilename = segments[0];
-                    node.href = "https://raw.githubusercontent.com/" + repo + "/master/" + path;
+                    node.href = repo.includes("http://localhost")
+                        ? repo.replace("/api/repos/", "/raw/") + "/" + path
+                        : "https://raw.githubusercontent.com/" + repo + "/master/" + path;
                     node.icon = 'glyphicon glyphicon-file';
                     tree.push(node);
 
@@ -289,7 +467,9 @@ function mainAjax(link, repo) {
 
                     node.text = segments[1];
                     node.originalFilename = segments[1];
-                    node.href = "https://raw.githubusercontent.com/" + repo + "/master/" + path;
+                    node.href = repo.includes("http://localhost")
+                        ? repo.replace("/api/repos/", "/raw/") + "/" + path
+                        : "https://raw.githubusercontent.com/" + repo + "/master/" + path;
                     node.icon = 'glyphicon glyphicon-file';
                     tree[index].nodes.push(node);
 
@@ -318,7 +498,9 @@ function mainAjax(link, repo) {
 
                     node.text = segments[2];
                     node.originalFilename = segments[2];
-                    node.href = "https://raw.githubusercontent.com/" + repo + "/master/" + path;
+                    node.href = repo.includes("http://localhost")
+                        ? repo.replace("/api/repos/", "/raw/") + "/" + path
+                        : "https://raw.githubusercontent.com/" + repo + "/master/" + path;
                     node.icon = 'glyphicon glyphicon-file';
                     tree[index].nodes[index2].nodes.push(node);
                 }
@@ -344,7 +526,7 @@ function getIndexFromTree(segment, nodes) {
 
 function collectLeafNodes(nodes, leaves) {
     for (var i = 0; i < nodes.length; i++) {
-        if (nodes[i].href && nodes[i].href.indexOf("raw.githubusercontent.com") !== -1) {
+        if (nodes[i].href && (nodes[i].href.indexOf("raw.githubusercontent.com") !== -1 || nodes[i].href.indexOf("/raw/") !== -1)) {
             leaves.push(nodes[i]);
         }
         if (nodes[i].nodes) {
@@ -497,7 +679,7 @@ function initTreeview(tree, suffix) {
         expandIcon: 'glyphicon glyphicon-folder-close',
         collapseIcon: 'glyphicon glyphicon-folder-open',
         onNodeSelected: function(event, node) {
-            if (node.href && node.href.indexOf("raw.githubusercontent.com") !== -1) {
+            if (node.href && (node.href.indexOf("raw.githubusercontent.com") !== -1 || node.href.indexOf("/raw/") !== -1)) {
                 var updateUrl = function(content) {
                     var queryEncoded = "?q=" + encodeURIComponent(content) + "&endpoint=" + encodeURIComponent(jQuery("#endpoint").val().trim());
                     var url = window.location.href.split('?')[0] + queryEncoded;
@@ -505,6 +687,18 @@ function initTreeview(tree, suffix) {
                 };
                 var handleContent = function(content) {
                     var parsed = parseRqHeaders(content);
+
+                    // Show title and description
+                    var $info = $('#query-info');
+                    if (parsed.title || parsed.description) {
+                        var infoHtml = '';
+                        if (parsed.title) infoHtml += '<strong>' + parsed.title + '</strong>';
+                        if (parsed.description) infoHtml += '<span class="text-muted"> &mdash; ' + parsed.description + '</span>';
+                        $info.html(infoHtml).show();
+                    } else {
+                        $info.hide();
+                    }
+
                     if (parsed.params.length > 0) {
                         _currentTemplate = content;
                         _currentParams = parsed.params;
@@ -518,10 +712,11 @@ function initTreeview(tree, suffix) {
                         _currentTemplate = null;
                         _currentParams = null;
                         $('#param-panel').slideUp();
+                        var body = stripHeaders(content);
                         _paramIgnoreChange = true;
-                        editor.getDoc().setValue(content);
+                        editor.getDoc().setValue(body);
                         _paramIgnoreChange = false;
-                        updateUrl(content);
+                        updateUrl(body);
                     }
                 };
                 if (node.queryContent) {
@@ -565,7 +760,7 @@ function fetchExamples(suffix) {
         repo = repo.substring(0, repo.length - 1);
     }
 
-    if (!repo || !repo.includes("https://github.com")) {
+    if (!repo || (!repo.includes("https://github.com") && !repo.includes("http://localhost"))) {
         return;
     }
 
@@ -579,9 +774,11 @@ function fetchExamples(suffix) {
     }
 
     var repoPath = repo.substring(19);
-    var link = "https://api.github.com/repos/" + repoPath + "/git/trees/master?recursive=1";
+    var link = repo.includes("http://localhost")
+        ? repo + "/git/trees/master?recursive=1"
+        : "https://api.github.com/repos/" + repoPath + "/git/trees/master?recursive=1";
 
-    mainAjax(link, repoPath).then(function(tree) {
+    mainAjax(link, repo.includes("http://localhost") ? repo : repoPath).then(function(tree) {
         return enrichTreeWithMetadata(tree);
     }).then(function(enrichedTree) {
         setCachedExamples(repo, enrichedTree);

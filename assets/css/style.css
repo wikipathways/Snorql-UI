@@ -1,6 +1,16 @@
 .CodeMirror {
     border: 1px solid black;
     font-size: 13px;
+    height: auto;
+}
+
+.CodeMirror-scroll {
+    overflow-y: hidden !important;
+    overflow-x: auto !important;
+}
+
+.CodeMirror-scrollbar-filler {
+    display: none !important;
 }
 
 footer{
@@ -113,19 +123,49 @@ footer p{
     color: #777;
 }
 
-/* Category filter buttons */
+/* Category filter buttons — hidden, folders serve as categories */
 .category-filter {
-    margin: 8px 0;
+    display: none;
 }
 
-.category-filter .btn {
-    margin: 2px;
+/* Inline param panel */
+#param-panel {
+    margin-bottom: 6px;
 }
 
-.category-filter .btn.active {
-    background-color: #5cb85c;
-    border-color: #4cae4c;
-    color: #fff;
+#param-panel .param-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+#param-panel .param-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+#param-panel .param-item label {
+    margin: 0;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+#param-panel .param-item .form-control {
+    height: 28px;
+    padding: 2px 6px;
+    font-size: 13px;
+    width: auto;
+    min-width: 120px;
+    max-width: 280px;
+}
+
+/* Query info line */
+#query-info {
+    margin-bottom: 4px;
+    font-size: 13px;
+    line-height: 1.4;
 }
 
 /* Examples treeview node hover transition */
@@ -171,6 +211,62 @@ footer p{
 #param-panel .form-group { margin-bottom: 8px; }
 #param-panel .form-group:last-child { margin-bottom: 0; }
 #param-panel label { font-weight: 600; font-size: 13px; }
+
+/* Pathway autocomplete dropdown */
+.pathway-autocomplete-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.pathway-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+    width: 360px;
+    max-height: 240px;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-top: none;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.pathway-option {
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pathway-option:hover,
+.pathway-option.highlighted {
+    background-color: #f0f0f0;
+}
+
+.pathway-option-id {
+    font-weight: 700;
+    color: #337ab7;
+}
+
+.pathway-option-title {
+    color: #555;
+}
+
+.pathway-option-species {
+    color: #888;
+    font-size: 11px;
+}
+
+.pathway-option-more {
+    padding: 4px 8px;
+    font-size: 12px;
+    color: #999;
+    font-style: italic;
+}
 
 /* Examples panel error/warning messages */
 #examples .alert-warning,
