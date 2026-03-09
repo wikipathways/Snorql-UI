@@ -6,6 +6,8 @@ var _currentTemplate = null;
 var _currentParams = null;
 var _pathwayCache = null;
 var _pathwayCachePromise = null;
+var _speciesCache = null;
+var _speciesCachePromise = null;
 
 function setCookie(cname, cvalue){
     var d = new Date();
@@ -225,10 +227,11 @@ function fetchPathwayList() {
 
     var url = endpoint + '?query=' + encodeURIComponent(sparql) + '&output=json';
 
-    _pathwayCachePromise = $.ajax({
+    var deferred = $.Deferred();
+    $.ajax({
         url: url,
         dataType: 'json'
-    }).then(function(json) {
+    }).done(function(json) {
         var list = [];
         if (json && json.results && json.results.bindings) {
             for (var i = 0; i < json.results.bindings.length; i++) {
@@ -242,19 +245,62 @@ function fetchPathwayList() {
         }
         _pathwayCache = list;
         _pathwayCachePromise = null;
-        return list;
-    }, function() {
+        deferred.resolve(list);
+    }).fail(function() {
         _pathwayCachePromise = null;
-        return [];
+        deferred.resolve([]);
     });
 
+    _pathwayCachePromise = deferred.promise();
     return _pathwayCachePromise;
 }
 
-function initPathwayAutocomplete() {
-    var $input = $('#param-pathwayId');
-    var $wrapper = $input.closest('.pathway-autocomplete-wrapper');
-    var $dropdown = $wrapper.find('.pathway-dropdown');
+function fetchSpeciesList() {
+    if (_speciesCache) {
+        return $.Deferred().resolve(_speciesCache).promise();
+    }
+    if (_speciesCachePromise) {
+        return _speciesCachePromise;
+    }
+
+    var endpoint = document.getElementById('endpoint').value.trim();
+    var sparql = 'PREFIX wp: <http://vocabularies.wikipathways.org/wp#>\n' +
+        'SELECT DISTINCT ?species WHERE {\n' +
+        '  ?pw a wp:Pathway ; wp:organismName ?species .\n' +
+        '} ORDER BY ?species';
+
+    var url = endpoint + '?query=' + encodeURIComponent(sparql) + '&output=json';
+
+    var deferred = $.Deferred();
+    $.ajax({
+        url: url,
+        dataType: 'json'
+    }).done(function(json) {
+        var list = [];
+        if (json && json.results && json.results.bindings) {
+            for (var i = 0; i < json.results.bindings.length; i++) {
+                var b = json.results.bindings[i];
+                if (b.species && b.species.value) {
+                    list.push(b.species.value);
+                }
+            }
+        }
+        _speciesCache = list;
+        _speciesCachePromise = null;
+        deferred.resolve(list);
+    }).fail(function() {
+        _speciesCachePromise = null;
+        deferred.resolve([]);
+    });
+
+    _speciesCachePromise = deferred.promise();
+    return _speciesCachePromise;
+}
+
+function initAutocomplete(inputId, fetchFn, formatFn) {
+    var $input = $('#' + inputId);
+    var $wrapper = $input.closest('.autocomplete-wrapper');
+    var $dropdown = $wrapper.find('.autocomplete-dropdown');
     var highlightIndex = -1;
 
     function renderDropdown(items) {
@@ -265,27 +311,21 @@ function initPathwayAutocomplete() {
         var html = '';
         var limit = Math.min(items.length, 50);
         for (var i = 0; i < limit; i++) {
-            var speciesLabel = items[i].species ? ' <span class="pathway-option-species">[' + escapeHtml(items[i].species) + ']</span>' : '';
-            html += '<div class="pathway-option" data-id="' + escapeHtml(items[i].id) + '">' +
-                '<span class="pathway-option-id">' + escapeHtml(items[i].id) + '</span> ' +
-                '<span class="pathway-option-title">' + escapeHtml(items[i].title) + '</span>' +
-                speciesLabel +
-                '</div>';
+            html += formatFn(items[i]);
         }
         if (items.length > 50) {
-            html += '<div class="pathway-option-more">' + (items.length - 50) + ' more — keep typing to narrow</div>';
+            html += '<div class="autocomplete-option-more">' + (items.length - 50) + ' more — keep typing to narrow</div>';
         }
         $dropdown.html(html).show();
         highlightIndex = -1;
     }
 
     function updateHighlight() {
-        $dropdown.find('.pathway-option').removeClass('highlighted');
+        $dropdown.find('.autocomplete-option').removeClass('highlighted');
         if (highlightIndex >= 0) {
-            var $opts = $dropdown.find('.pathway-option');
+            var $opts = $dropdown.find('.autocomplete-option');
             if (highlightIndex < $opts.length) {
                 $opts.eq(highlightIndex).addClass('highlighted');
-                // Scroll into view
                 var opt = $opts[highlightIndex];
                 if (opt.scrollIntoView) {
                     opt.scrollIntoView({ block: 'nearest' });
@@ -294,8 +334,8 @@ function initPathwayAutocomplete() {
         }
     }
 
-    function selectItem(id) {
-        $input.val(id);
+    function selectItem(value) {
+        $input.val(value);
         $dropdown.hide();
         highlightIndex = -1;
         $input.trigger('change');
@@ -311,21 +351,12 @@ function initPathwayAutocomplete() {
             $dropdown.hide();
             return;
         }
-        fetchPathwayList().then(function(list) {
-            var filtered = [];
-            for (var i = 0; i < list.length; i++) {
-                if (list[i].id.toLowerCase().indexOf(val) !== -1 ||
-                    list[i].title.toLowerCase().indexOf(val) !== -1) {
-                    filtered.push(list[i]);
-                }
-            }
-            renderDropdown(filtered);
-        });
+        fetchFn(val, renderDropdown);
     });
 
     $input.on('keydown', function(e) {
         if (!$dropdown.is(':visible')) return;
-        var $opts = $dropdown.find('.pathway-option');
+        var $opts = $dropdown.find('.autocomplete-option');
         if (e.keyCode === 40) { // Down
             e.preventDefault();
             highlightIndex = Math.min(highlightIndex + 1, $opts.length - 1);
@@ -337,7 +368,7 @@ function initPathwayAutocomplete() {
         } else if (e.keyCode === 13) { // Enter
             e.preventDefault();
             if (highlightIndex >= 0 && highlightIndex < $opts.length) {
-                selectItem($opts.eq(highlightIndex).data('id'));
+                selectItem($opts.eq(highlightIndex).attr('data-value'));
             }
         } else if (e.keyCode === 27) { // Escape
             $dropdown.hide();
@@ -345,20 +376,60 @@ function initPathwayAutocomplete() {
         }
     });
 
-    $dropdown.on('click', '.pathway-option', function() {
-        selectItem($(this).data('id'));
+    $dropdown.on('click', '.autocomplete-option', function() {
+        selectItem($(this).attr('data-value'));
     });
 
-    // Close dropdown on click outside
-    $(document).on('mousedown', function(e) {
-        if (!$(e.target).closest('.pathway-autocomplete-wrapper').length) {
+    // Use namespaced event to avoid accumulating handlers across rebuilds
+    var ns = '.ac-' + inputId;
+    $(document).off('mousedown' + ns).on('mousedown' + ns, function(e) {
+        if (!$(e.target).closest('.autocomplete-wrapper').length) {
             $dropdown.hide();
             highlightIndex = -1;
         }
     });
+}
 
-    // Pre-fetch the pathway list
+function initPathwayAutocomplete() {
+    initAutocomplete('param-pathwayId', function(val, render) {
+        fetchPathwayList().done(function(list) {
+            var filtered = [];
+            for (var i = 0; i < list.length; i++) {
+                if (list[i].id.toLowerCase().indexOf(val) !== -1 ||
+                    list[i].title.toLowerCase().indexOf(val) !== -1) {
+                    filtered.push(list[i]);
+                }
+            }
+            render(filtered);
+        });
+    }, function(item) {
+        var speciesLabel = item.species ? ' <span class="autocomplete-option-species">[' + escapeHtml(item.species) + ']</span>' : '';
+        return '<div class="autocomplete-option" data-value="' + escapeHtml(item.id) + '">' +
+            '<span class="autocomplete-option-id">' + escapeHtml(item.id) + '</span> ' +
+            '<span class="autocomplete-option-title">' + escapeHtml(item.title) + '</span>' +
+            speciesLabel +
+            '</div>';
+    });
     fetchPathwayList();
+}
+
+function initSpeciesAutocomplete() {
+    initAutocomplete('param-species', function(val, render) {
+        fetchSpeciesList().done(function(list) {
+            var filtered = [];
+            for (var i = 0; i < list.length; i++) {
+                if (list[i].toLowerCase().indexOf(val) !== -1) {
+                    filtered.push(list[i]);
+                }
+            }
+            render(filtered);
+        });
+    }, function(item) {
+        return '<div class="autocomplete-option" data-value="' + escapeHtml(item) + '">' +
+            escapeHtml(item) +
+            '</div>';
+    });
+    fetchSpeciesList();
 }
 
 function buildParamPanel(params, templateContent) {
@@ -378,9 +449,14 @@ function buildParamPanel(params, templateContent) {
             }
             html += '</select>';
         } else if (p.name === 'pathwayId') {
-            html += '<div class="pathway-autocomplete-wrapper">';
+            html += '<div class="autocomplete-wrapper">';
             html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + escapeHtml(p.defaultValue) + '" placeholder="Type pathway ID or name..." autocomplete="off">';
-            html += '<div class="pathway-dropdown"></div>';
+            html += '<div class="autocomplete-dropdown"></div>';
+            html += '</div>';
+        } else if (p.name === 'species') {
+            html += '<div class="autocomplete-wrapper">';
+            html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + escapeHtml(p.defaultValue) + '" placeholder="Type species name..." autocomplete="off">';
+            html += '<div class="autocomplete-dropdown"></div>';
             html += '</div>';
         } else {
             html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + p.defaultValue + '" placeholder="' + p.label + '">';
@@ -392,9 +468,11 @@ function buildParamPanel(params, templateContent) {
     html += '</div>';
     $panel.html(html).show();
 
-    // Initialize pathway autocomplete if pathwayId param is present
     if ($('#param-pathwayId').length) {
         initPathwayAutocomplete();
+    }
+    if ($('#param-species').length) {
+        initSpeciesAutocomplete();
     }
 
     // Trigger initial substitution with defaults

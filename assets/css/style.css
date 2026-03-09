@@ -212,13 +212,13 @@ footer p{
 #param-panel .form-group:last-child { margin-bottom: 0; }
 #param-panel label { font-weight: 600; font-size: 13px; }
 
-/* Pathway autocomplete dropdown */
-.pathway-autocomplete-wrapper {
+/* Autocomplete dropdown (generic) */
+.autocomplete-wrapper {
     position: relative;
     display: inline-block;
 }
 
-.pathway-dropdown {
+.autocomplete-dropdown {
     display: none;
     position: absolute;
     top: 100%;
@@ -233,7 +233,7 @@ footer p{
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-.pathway-option {
+.autocomplete-option {
     padding: 4px 8px;
     cursor: pointer;
     font-size: 13px;
@@ -242,26 +242,26 @@ footer p{
     text-overflow: ellipsis;
 }
 
-.pathway-option:hover,
-.pathway-option.highlighted {
+.autocomplete-option:hover,
+.autocomplete-option.highlighted {
     background-color: #f0f0f0;
 }
 
-.pathway-option-id {
+.autocomplete-option-id {
     font-weight: 700;
     color: #337ab7;
 }
 
-.pathway-option-title {
+.autocomplete-option-title {
     color: #555;
 }
 
-.pathway-option-species {
+.autocomplete-option-species {
     color: #888;
     font-size: 11px;
 }
 
-.pathway-option-more {
+.autocomplete-option-more {
     padding: 4px 8px;
     font-size: 12px;
     color: #999;
