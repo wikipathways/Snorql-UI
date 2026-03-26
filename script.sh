@@ -26,3 +26,11 @@ if [[ -n "${SNORQL_TITLE}" ]]; then
 else
   echo "SNORQL_TITLE is not set"
 fi
+
+if [[ -n "${WELCOME_TITLE}" ]]; then
+  sed -i "s#welcomeTitle: \".*\"#welcomeTitle: \"${WELCOME_TITLE}\"#" "$CONFIG_FILE"
+fi
+
+if [[ -n "${WELCOME_MESSAGE}" ]]; then
+  sed -i "s#welcomeMessage: \".*\"#welcomeMessage: \"${WELCOME_MESSAGE}\"#" "$CONFIG_FILE"
+fi

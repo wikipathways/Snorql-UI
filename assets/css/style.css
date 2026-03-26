@@ -2,6 +2,7 @@
     border: 1px solid black;
     font-size: 13px;
     height: auto;
+    min-height: 200px;
 }
 
 .CodeMirror-scroll {
@@ -42,7 +43,7 @@ footer p{
   display: none;
 }
 
-.panel-body{
+#examplesMainBody {
   max-height: 450px;
   overflow: scroll;
 }
@@ -123,45 +124,6 @@ footer p{
     color: #777;
 }
 
-/* Inline param panel */
-#param-panel {
-    margin-bottom: 6px;
-}
-
-#param-panel .param-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
-}
-
-#param-panel .param-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-#param-panel .param-item label {
-    margin: 0;
-    font-size: 12px;
-    white-space: nowrap;
-}
-
-#param-panel .param-item .form-control {
-    height: 28px;
-    padding: 2px 6px;
-    font-size: 13px;
-    width: auto;
-    min-width: 120px;
-    max-width: 280px;
-}
-
-/* Query info line */
-#query-info {
-    margin-bottom: 4px;
-    font-size: 13px;
-    line-height: 1.4;
-}
 
 /* Examples treeview node hover transition */
 .list-group-item {
@@ -198,14 +160,86 @@ footer p{
     padding: 10px;
 }
 
-/* Parameter panel */
-#param-panel { margin-bottom: 10px; }
-#param-panel .panel { margin-bottom: 0; }
-#param-panel .panel-heading { padding: 8px 15px; }
-#param-panel .panel-body { padding: 10px 15px; }
-#param-panel .form-group { margin-bottom: 8px; }
-#param-panel .form-group:last-child { margin-bottom: 0; }
-#param-panel label { font-weight: 600; font-size: 13px; }
+
+/* Description panel */
+#description-panel {
+    transition: opacity 0.3s ease;
+    margin-bottom: 8px;
+}
+
+#description-panel.panel-stale {
+    opacity: 0.5;
+}
+
+#description-panel .panel-body {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+#description-panel .stale-indicator {
+    font-size: 12px;
+    color: #999;
+    font-style: italic;
+    margin-top: 4px;
+}
+
+/* Param row layout inside description panel */
+#desc-params .param-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+#desc-params .param-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+#desc-params .param-item label {
+    font-weight: 700;
+    font-size: 13px;
+    white-space: nowrap;
+    margin-bottom: 0;
+}
+
+#desc-params .param-item .form-control {
+    width: auto;
+    min-width: 140px;
+    font-size: 13px;
+}
+
+#desc-params .autocomplete-wrapper {
+    position: relative;
+    display: inline-block;
+    min-width: 200px;
+}
+
+#desc-params .autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-top: none;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+}
+
+#desc-params .autocomplete-option {
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+#desc-params .autocomplete-option:hover,
+#desc-params .autocomplete-option.active {
+    background-color: #337ab7;
+    color: #fff;
+}
 
 /* Autocomplete dropdown (generic) */
 .autocomplete-wrapper {
