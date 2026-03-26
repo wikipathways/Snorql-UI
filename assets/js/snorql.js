@@ -69,7 +69,7 @@ function getPrefixes(){
 }
 
 function parseRqHeaders(content) {
-    var result = { title: null, description: null, categories: [], params: [] };
+    var result = { title: null, description: null, params: [] };
 
     var lines = content.split('\n');
     var descriptionLines = [];
@@ -92,13 +92,6 @@ function parseRqHeaders(content) {
         // Continuation line: "#   some text" (indented, no keyword)
         if (descriptionLines.length > 0 && line.match(/^#\s{2,}\S/)) {
             descriptionLines.push(line.replace(/^#\s+/, ''));
-            continue;
-        }
-
-        var catMatch = line.match(/^#\s*category:\s*(.+)/i);
-        if (catMatch) {
-            var cats = catMatch[1].split(',').map(function(c) { return c.trim(); });
-            result.categories = result.categories.concat(cats);
             continue;
         }
 
@@ -629,14 +622,12 @@ function enrichTreeWithMetadata(tree) {
             var meta = parseRqHeaders(content);
             node.text = meta.title || cleanFilename(node.originalFilename || node.text);
             node.description = meta.description || '';
-            node.categories = meta.categories || [];
             node.queryContent = content;
             return node;
         }, function() {
             // If individual file fetch fails, use cleaned filename
             node.text = cleanFilename(node.originalFilename || node.text);
             node.description = '';
-            node.categories = [];
             node.queryContent = null;
             return node;
         });
@@ -645,66 +636,6 @@ function enrichTreeWithMetadata(tree) {
     return $.when.apply($, promises).then(function() {
         return tree;
     });
-}
-
-function collectCategories(nodes, categorySet) {
-    if (!nodes) return;
-    nodes.forEach(function(node) {
-        if (node.categories && node.categories.length > 0) {
-            node.categories.forEach(function(c) { categorySet.add(c); });
-        }
-        if (node.nodes) {
-            collectCategories(node.nodes, categorySet);
-        }
-    });
-}
-
-function buildCategoryFilter(treeData, suffix) {
-    var categories = new Set();
-    collectCategories(treeData, categories);
-
-    if (categories.size === 0) return;
-
-    var $container = $('#category-filter' + suffix);
-    $container.empty();
-
-    var html = '<button class="btn btn-default btn-xs active" data-category="all">All</button>';
-    categories.forEach(function(cat) {
-        html += '<button class="btn btn-default btn-xs" data-category="' + cat + '">' + cat + '</button>';
-    });
-    $container.html(html);
-
-    $container.on('click', 'button', function() {
-        $container.find('button').removeClass('active');
-        $(this).addClass('active');
-
-        var selectedCategory = $(this).data('category');
-        if (selectedCategory === 'all') {
-            initTreeview(JSON.parse(JSON.stringify(_fullTreeData)), suffix);
-        } else {
-            var filtered = filterTreeByCategory(_fullTreeData, selectedCategory);
-            initTreeview(filtered, suffix);
-        }
-    });
-}
-
-function filterTreeByCategory(nodes, category) {
-    var result = [];
-    nodes.forEach(function(node) {
-        if (node.nodes) {
-            var filteredChildren = filterTreeByCategory(node.nodes, category);
-            if (filteredChildren.length > 0) {
-                var folderCopy = JSON.parse(JSON.stringify(node));
-                folderCopy.nodes = filteredChildren;
-                result.push(folderCopy);
-            }
-        } else {
-            if (node.categories && node.categories.indexOf(category) !== -1) {
-                result.push(JSON.parse(JSON.stringify(node)));
-            }
-        }
-    });
-    return result;
 }
 
 function filterTreeBySearch(nodes, lowerPattern) {
@@ -721,14 +652,6 @@ function filterTreeBySearch(nodes, lowerPattern) {
             var matches = false;
             if (node.text && node.text.toLowerCase().indexOf(lowerPattern) !== -1) matches = true;
             if (!matches && node.description && node.description.toLowerCase().indexOf(lowerPattern) !== -1) matches = true;
-            if (!matches && node.categories) {
-                for (var i = 0; i < node.categories.length; i++) {
-                    if (node.categories[i].toLowerCase().indexOf(lowerPattern) !== -1) {
-                        matches = true;
-                        break;
-                    }
-                }
-            }
             if (matches) {
                 result.push(JSON.parse(JSON.stringify(node)));
             }
@@ -744,10 +667,6 @@ function searchExamples(pattern, suffix) {
     var filtered = filterTreeBySearch(_fullTreeData, lowerPattern);
 
     initTreeview(filtered, suffix);
-
-    // Reset category filter to "All" since search operates on full data
-    $('#category-filter' + suffix + ' button').removeClass('active');
-    $('#category-filter' + suffix + ' button[data-category="all"]').addClass('active');
 }
 
 function initTreeview(tree, suffix) {
@@ -847,7 +766,6 @@ function fetchExamples(suffix) {
     if (cached) {
         _fullTreeData = JSON.parse(JSON.stringify(cached));
         initTreeview(cached, suffix);
-        buildCategoryFilter(_fullTreeData, suffix);
         return;
     }
 
@@ -862,7 +780,6 @@ function fetchExamples(suffix) {
         setCachedExamples(repo, enrichedTree);
         _fullTreeData = JSON.parse(JSON.stringify(enrichedTree));
         initTreeview(enrichedTree, suffix);
-        buildCategoryFilter(_fullTreeData, suffix);
     }).fail(function(xhr) {
         var message = 'Could not load examples.';
         if (xhr.status === 403) {

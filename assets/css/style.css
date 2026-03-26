@@ -123,11 +123,6 @@ footer p{
     color: #777;
 }
 
-/* Category filter buttons — hidden, folders serve as categories */
-.category-filter {
-    display: none;
-}
-
 /* Inline param panel */
 #param-panel {
     margin-bottom: 6px;
