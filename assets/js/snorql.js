@@ -4,6 +4,36 @@ var _paramMode = false;
 var _paramIgnoreChange = false;
 var _currentTemplate = null;
 var _currentParams = null;
+var _panelState = 'welcome'; // 'welcome' | 'active' | 'stale'
+
+function showWelcomePanel() {
+    _panelState = 'welcome';
+    $('#desc-title').text(CONFIG.welcomeTitle || 'SPARQL Query Explorer');
+    $('#desc-text').html(CONFIG.welcomeMessage || '<p>Browse and run SPARQL queries.</p>');
+    $('.stale-indicator').hide();
+    $('#desc-params').hide();
+    $('#desc-param-divider').hide();
+    $('#description-panel').removeClass('panel-stale').css('opacity', 1);
+}
+
+function showQueryPanel(parsed) {
+    _panelState = 'active';
+    $('#desc-title').text(parsed.title || 'Query');
+    $('#desc-text').text(parsed.description || '');
+    $('.stale-indicator').hide();
+    $('#description-panel').removeClass('panel-stale').css('opacity', 1);
+    // Enable param inputs if any exist
+    $('#desc-params .param-input').prop('disabled', false);
+}
+
+function dimPanel() {
+    if (_panelState !== 'active') return; // Only dim from active state
+    _panelState = 'stale';
+    $('#description-panel').addClass('panel-stale');
+    $('.stale-indicator').show();
+    // Disable param inputs per D-17
+    $('#desc-params .param-input').prop('disabled', true);
+}
 var _pathwayCache = null;
 var _pathwayCachePromise = null;
 var _speciesCache = null;
@@ -426,7 +456,7 @@ function initSpeciesAutocomplete() {
 }
 
 function buildParamPanel(params, templateContent) {
-    var $panel = $('#param-panel');
+    var $panel = $('#desc-params');
     var html = '<div class="param-row">';
 
     for (var i = 0; i < params.length; i++) {
@@ -459,7 +489,7 @@ function buildParamPanel(params, templateContent) {
     }
 
     html += '</div>';
-    $panel.html(html).show();
+    $panel.html(html);
 
     if ($('#param-pathwayId').length) {
         initPathwayAutocomplete();
@@ -685,22 +715,17 @@ function initTreeview(tree, suffix) {
                 var handleContent = function(content) {
                     var parsed = parseRqHeaders(content);
 
-                    // Show title and description
-                    var $info = $('#query-info');
-                    if (parsed.title || parsed.description) {
-                        var infoHtml = '';
-                        if (parsed.title) infoHtml += '<strong>' + parsed.title + '</strong>';
-                        if (parsed.description) infoHtml += '<span class="text-muted"> &mdash; ' + parsed.description + '</span>';
-                        $info.html(infoHtml).show();
-                    } else {
-                        $info.hide();
-                    }
+                    // Show query info in description panel (per D-01, D-02, D-08)
+                    showQueryPanel(parsed);
 
                     if (parsed.params.length > 0) {
                         _currentTemplate = content;
                         _currentParams = parsed.params;
                         _paramMode = true;
                         buildParamPanel(parsed.params, content);
+                        // Show param section
+                        $('#desc-param-divider').show();
+                        $('#desc-params').show();
                         var substituted = substituteParams(content, parsed.params);
                         var body = stripHeaders(substituted);
                         updateUrl(body);
@@ -708,7 +733,9 @@ function initTreeview(tree, suffix) {
                         _paramMode = false;
                         _currentTemplate = null;
                         _currentParams = null;
-                        $('#param-panel').slideUp();
+                        // Hide param section
+                        $('#desc-param-divider').hide();
+                        $('#desc-params').hide();
                         var body = stripHeaders(content);
                         _paramIgnoreChange = true;
                         editor.getDoc().setValue(body);
@@ -866,7 +893,7 @@ function start(){
     $('#poweredby').text( CONFIG.poweredByLabel);
 
     // Live preview: update editor as user types in parameter fields
-    $('#param-panel').on('input change', '.param-input', function() {
+    $('#desc-params').on('input change', '.param-input', function() {
         if (_currentTemplate && _currentParams) {
             var substituted = substituteParams(_currentTemplate, _currentParams);
             var body = stripHeaders(substituted);
@@ -880,20 +907,24 @@ function start(){
         }
     });
 
-    // Manual edit detection: hide param panel when user edits the query directly
+    // Manual edit detection: dim description panel when user edits the query directly
     editor.on('change', function(cm, changeObj) {
         if (_paramIgnoreChange) return;
-        if (_paramMode && changeObj.origin !== 'setValue') {
+        if (changeObj.origin !== 'setValue' && _panelState === 'active') {
+            dimPanel();
+            // Clear template state so params don't re-fire
             _paramMode = false;
             _currentTemplate = null;
             _currentParams = null;
-            $('#param-panel').slideUp();
         }
     });
 
     // Initialize endpoint health indicator
     $('#endpoint-health-dot').tooltip({ placement: 'bottom', trigger: 'hover' });
     checkEndpointHealth();
+
+    // Show welcome panel on page load (per D-09)
+    showWelcomePanel();
 }
 
 function showQuerySpinner() {
