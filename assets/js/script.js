@@ -128,8 +128,17 @@ jQuery(document).ready(function() {
             });
         });
 
-		jQuery("#reset-button").on("click",function(){
+		jQuery("#reset-button").on("click", function() {
+            // Clear template state
+            _paramMode = false;
+            _currentTemplate = null;
+            _currentParams = null;
+            // Clear editor (wrapped in ignore flag to prevent dim trigger)
+            _paramIgnoreChange = true;
             editor.getDoc().setValue("");
+            _paramIgnoreChange = false;
+            // Show welcome panel (per D-09, D-19)
+            showWelcomePanel();
         });
 
         jQuery("#export-csv").on("click",function(){
