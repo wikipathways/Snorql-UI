@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Query Templates & UI Enhancements
-status: executing
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-03-26T20:58:49.786Z"
+status: verifying
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-03-26T21:02:41.181Z"
 last_activity: 2026-03-26
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-26)
 
 Phase: 06 (description-panel) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-03-26
 
 Progress: [..........] 0% (v1.1)
@@ -54,6 +54,7 @@ Recent decisions affecting current work:
 - [Phase order]: Description Panel -> Template Infrastructure -> Template Consolidation (risk-ascending)
 - [Phase 06]: Removed h4 SPARQL Query heading; description panel title serves same purpose
 - [Phase 06]: Kept existing generic autocomplete CSS alongside new desc-params scoped autocomplete CSS
+- [Phase 06]: dimPanel() only triggers from active state to prevent double-dim
 
 ### Pending Todos
 
@@ -66,6 +67,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-26T20:58:49.777Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-03-26T21:02:41.174Z
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None

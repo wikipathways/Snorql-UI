@@ -41,7 +41,7 @@
 
 Plans:
 - [x] 06-01-PLAN.md -- Category removal, config keys, CSS foundation, HTML skeleton
-- [ ] 06-02-PLAN.md -- Panel state machine, event wiring, welcome/active/stale behavior
+- [x] 06-02-PLAN.md -- Panel state machine, event wiring, welcome/active/stale behavior
 
 **UI hint**: yes
 

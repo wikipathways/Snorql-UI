@@ -20,7 +20,7 @@ Requirements for v1.1 Query Templates & UI Enhancements. Each maps to roadmap ph
 
 ### Description Panel
 
-- [ ] **DESC-01**: User sees a styled description area above the query panel showing the selected query's title and description
+- [x] **DESC-01**: User sees a styled description area above the query panel showing the selected query's title and description
 - [x] **DESC-02**: User sees a welcome/intro message explaining the tool when no query is selected
 
 ## Future Requirements
@@ -59,7 +59,7 @@ Requirements for v1.1 Query Templates & UI Enhancements. Each maps to roadmap ph
 | TMPL-06 | Phase 8 | Pending |
 | TMPL-07 | Phase 7 | Pending |
 | TMPL-08 | Phase 7 | Pending |
-| DESC-01 | Phase 6 | Pending |
+| DESC-01 | Phase 6 | Complete |
 | DESC-02 | Phase 6 | Complete |
 
 **Coverage:**
