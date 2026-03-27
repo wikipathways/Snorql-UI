@@ -4,6 +4,7 @@ var _paramMode = false;
 var _paramIgnoreChange = false;
 var _currentTemplate = null;
 var _currentParams = null;
+var _currentParsedTitle = null; // Raw Mustache title template from #title header
 var _panelState = 'welcome'; // 'welcome' | 'active' | 'stale'
 
 function showWelcomePanel() {
@@ -18,7 +19,16 @@ function showWelcomePanel() {
 
 function showQueryPanel(parsed) {
     _panelState = 'active';
-    $('#desc-title').text(parsed.title || 'Query');
+    if (parsed.title && _currentParams && _currentParams.length > 0) {
+        // Render title with default param values (D-01, D-02)
+        var titleView = {};
+        for (var i = 0; i < _currentParams.length; i++) {
+            titleView[_currentParams[i].name] = _currentParams[i].defaultValue || '';
+        }
+        $('#desc-title').text(Mustache.render(parsed.title, titleView));
+    } else {
+        $('#desc-title').text(parsed.title || 'Query');
+    }
     $('#desc-text').text(parsed.description || '');
     $('.stale-indicator').hide();
     $('#description-panel').removeClass('panel-stale').css('opacity', 1);
@@ -34,10 +44,8 @@ function dimPanel() {
     // Disable param inputs per D-17
     $('#desc-params .param-input').prop('disabled', true);
 }
-var _pathwayCache = null;
-var _pathwayCachePromise = null;
-var _speciesCache = null;
-var _speciesCachePromise = null;
+var _autocompleteCache = {};
+var _autocompleteCachePromise = {};
 
 function setCookie(cname, cvalue){
     var d = new Date();
@@ -80,6 +88,8 @@ function findGetParameter(parameterName) {
 }
 
 function changeEndpoint() {
+    _autocompleteCache = {};
+    _autocompleteCachePromise = {};
     checkEndpointHealth();
 }
 
@@ -134,8 +144,12 @@ function parseRqHeaders(content) {
                 var paramDefault = parts[2].trim();
                 var paramLabel = parts[3].trim();
                 var paramOptions = null;
+                var autocompleteTypeName = null;
 
-                if (paramType.indexOf('enum:') === 0) {
+                if (paramType.indexOf('autocomplete:') === 0) {
+                    autocompleteTypeName = paramType.substring(13).trim();
+                    paramType = 'autocomplete';
+                } else if (paramType.indexOf('enum:') === 0) {
                     paramOptions = paramType.substring(5).split(',').map(function(o) { return o.trim(); });
                     paramType = 'enum';
                 }
@@ -143,6 +157,7 @@ function parseRqHeaders(content) {
                 result.params.push({
                     name: paramName,
                     type: paramType,
+                    autocompleteType: autocompleteTypeName,
                     defaultValue: paramDefault,
                     label: paramLabel,
                     options: paramOptions
@@ -232,92 +247,109 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
-function fetchPathwayList() {
-    if (_pathwayCache) {
-        return $.Deferred().resolve(_pathwayCache).promise();
+function fetchAutocompleteData(typeName) {
+    if (_autocompleteCache[typeName]) {
+        return $.Deferred().resolve(_autocompleteCache[typeName]).promise();
     }
-    if (_pathwayCachePromise) {
-        return _pathwayCachePromise;
+    if (_autocompleteCachePromise[typeName]) {
+        return _autocompleteCachePromise[typeName];
     }
 
+    var typeConfig = CONFIG.autocompleteTypes ? CONFIG.autocompleteTypes[typeName] : null;
+    if (!typeConfig) {
+        console.warn('Autocomplete type "' + typeName + '" not found in registry');
+        return $.Deferred().resolve([]).promise();
+    }
+
+    // Static values - no SPARQL needed
+    if (typeConfig.staticValues) {
+        var list = typeConfig.staticValues.map(function(v) {
+            var item = {};
+            item[typeConfig.valueField] = v;
+            return item;
+        });
+        _autocompleteCache[typeName] = list;
+        return $.Deferred().resolve(list).promise();
+    }
+
+    // SPARQL fetch
     var endpoint = document.getElementById('endpoint').value.trim();
-    var sparql = 'PREFIX dcterms: <http://purl.org/dc/terms/>\n' +
-        'PREFIX dc: <http://purl.org/dc/elements/1.1/>\n' +
-        'PREFIX wp: <http://vocabularies.wikipathways.org/wp#>\n' +
-        'SELECT DISTINCT (str(?wpId) as ?id) (str(?title) as ?name) (str(?orgName) as ?species)\n' +
-        'WHERE { ?pw a wp:Pathway ; dcterms:identifier ?wpId ; dc:title ?title ; wp:organismName ?orgName . }\n' +
-        'ORDER BY ?wpId';
-
-    var url = endpoint + '?query=' + encodeURIComponent(sparql) + '&output=json';
+    var url = endpoint + '?query=' + encodeURIComponent(typeConfig.sparql) + '&output=json';
 
     var deferred = $.Deferred();
-    $.ajax({
-        url: url,
-        dataType: 'json'
-    }).done(function(json) {
+    $.ajax({ url: url, dataType: 'json' }).done(function(json) {
         var list = [];
         if (json && json.results && json.results.bindings) {
             for (var i = 0; i < json.results.bindings.length; i++) {
                 var b = json.results.bindings[i];
-                list.push({
-                    id: b.id ? b.id.value : '',
-                    title: b.name ? b.name.value : '',
-                    species: b.species ? b.species.value : ''
-                });
+                var item = {};
+                item[typeConfig.valueField] = b[typeConfig.valueField] ? b[typeConfig.valueField].value : '';
+                if (typeConfig.labelField && b[typeConfig.labelField]) {
+                    item[typeConfig.labelField] = b[typeConfig.labelField].value;
+                }
+                if (typeConfig.extraField && b[typeConfig.extraField]) {
+                    item[typeConfig.extraField] = b[typeConfig.extraField].value;
+                }
+                list.push(item);
             }
         }
-        _pathwayCache = list;
-        _pathwayCachePromise = null;
+        _autocompleteCache[typeName] = list;
+        _autocompleteCachePromise[typeName] = null;
         deferred.resolve(list);
     }).fail(function() {
-        _pathwayCachePromise = null;
+        _autocompleteCachePromise[typeName] = null;
         deferred.resolve([]);
     });
 
-    _pathwayCachePromise = deferred.promise();
-    return _pathwayCachePromise;
+    _autocompleteCachePromise[typeName] = deferred.promise();
+    return _autocompleteCachePromise[typeName];
 }
 
-function fetchSpeciesList() {
-    if (_speciesCache) {
-        return $.Deferred().resolve(_speciesCache).promise();
+function formatAutocompleteOption(item, typeConfig) {
+    var value = item[typeConfig.valueField] || '';
+    // Multi-field display (e.g., pathway: id + name + species)
+    if (typeConfig.labelField && item[typeConfig.labelField]) {
+        var label = item[typeConfig.labelField];
+        var extra = (typeConfig.extraField && item[typeConfig.extraField])
+            ? ' <span class="autocomplete-option-species">[' + escapeHtml(item[typeConfig.extraField]) + ']</span>'
+            : '';
+        return '<div class="autocomplete-option" data-value="' + escapeHtml(value) + '">' +
+            '<span class="autocomplete-option-id">' + escapeHtml(value) + '</span> ' +
+            '<span class="autocomplete-option-title">' + escapeHtml(label) + '</span>' +
+            extra +
+            '</div>';
     }
-    if (_speciesCachePromise) {
-        return _speciesCachePromise;
+    // Single-field display (e.g., species, entityType, datasource)
+    return '<div class="autocomplete-option" data-value="' + escapeHtml(value) + '">' +
+        escapeHtml(value) +
+        '</div>';
+}
+
+function initAutocompleteField(inputId, typeName) {
+    var typeConfig = CONFIG.autocompleteTypes ? CONFIG.autocompleteTypes[typeName] : null;
+    if (!typeConfig) {
+        console.warn('Autocomplete type "' + typeName + '" not found in registry');
+        return;
     }
-
-    var endpoint = document.getElementById('endpoint').value.trim();
-    var sparql = 'PREFIX wp: <http://vocabularies.wikipathways.org/wp#>\n' +
-        'SELECT DISTINCT ?species WHERE {\n' +
-        '  ?pw a wp:Pathway ; wp:organismName ?species .\n' +
-        '} ORDER BY ?species';
-
-    var url = endpoint + '?query=' + encodeURIComponent(sparql) + '&output=json';
-
-    var deferred = $.Deferred();
-    $.ajax({
-        url: url,
-        dataType: 'json'
-    }).done(function(json) {
-        var list = [];
-        if (json && json.results && json.results.bindings) {
-            for (var i = 0; i < json.results.bindings.length; i++) {
-                var b = json.results.bindings[i];
-                if (b.species && b.species.value) {
-                    list.push(b.species.value);
-                }
+    initAutocomplete(inputId, function(val, render) {
+        fetchAutocompleteData(typeName).done(function(list) {
+            var filtered = [];
+            var lowerVal = val.toLowerCase();
+            for (var i = 0; i < list.length; i++) {
+                var item = list[i];
+                // Search across all configured fields
+                var match = false;
+                if (item[typeConfig.valueField] && item[typeConfig.valueField].toLowerCase().indexOf(lowerVal) !== -1) match = true;
+                if (!match && typeConfig.labelField && item[typeConfig.labelField] && item[typeConfig.labelField].toLowerCase().indexOf(lowerVal) !== -1) match = true;
+                if (match) filtered.push(item);
             }
-        }
-        _speciesCache = list;
-        _speciesCachePromise = null;
-        deferred.resolve(list);
-    }).fail(function() {
-        _speciesCachePromise = null;
-        deferred.resolve([]);
+            render(filtered);
+        });
+    }, function(item) {
+        return formatAutocompleteOption(item, typeConfig);
     });
-
-    _speciesCachePromise = deferred.promise();
-    return _speciesCachePromise;
+    // Pre-fetch data so it is cached when user first types
+    fetchAutocompleteData(typeName);
 }
 
 function initAutocomplete(inputId, fetchFn, formatFn) {
@@ -413,45 +445,6 @@ function initAutocomplete(inputId, fetchFn, formatFn) {
     });
 }
 
-function initPathwayAutocomplete() {
-    initAutocomplete('param-pathwayId', function(val, render) {
-        fetchPathwayList().done(function(list) {
-            var filtered = [];
-            for (var i = 0; i < list.length; i++) {
-                if (list[i].id.toLowerCase().indexOf(val) !== -1 ||
-                    list[i].title.toLowerCase().indexOf(val) !== -1) {
-                    filtered.push(list[i]);
-                }
-            }
-            render(filtered);
-        });
-    }, function(item) {
-        var speciesLabel = item.species ? ' <span class="autocomplete-option-species">[' + escapeHtml(item.species) + ']</span>' : '';
-        return '<div class="autocomplete-option" data-value="' + escapeHtml(item.id) + '">' +
-            '<span class="autocomplete-option-id">' + escapeHtml(item.id) + '</span> ' +
-            '<span class="autocomplete-option-title">' + escapeHtml(item.title) + '</span>' +
-            speciesLabel +
-            '</div>';
-    });
-    fetchPathwayList();
-}
-
-function initSpeciesAutocomplete() {
-    initAutocomplete('param-species', function(val, render) {
-        fetchSpeciesList().done(function(list) {
-            var filtered = [];
-            for (var i = 0; i < list.length; i++) {
-                if (list[i].toLowerCase().indexOf(val) !== -1) {
-                    filtered.push(list[i]);
-                }
-            }
-            render(filtered);
-        });
-    }, function(item) {
-        return '<div class="autocomplete-option" data-value="' + escapeHtml(item) + '">' +
-            escapeHtml(item) +
-            '</div>';
-    });
     fetchSpeciesList();
 }
 
@@ -471,14 +464,11 @@ function buildParamPanel(params, templateContent) {
                 html += '<option value="' + p.options[j] + '"' + selected + '>' + p.options[j] + '</option>';
             }
             html += '</select>';
-        } else if (p.name === 'pathwayId') {
+        } else if (p.autocompleteType) {
+            var typeConfig = CONFIG.autocompleteTypes ? CONFIG.autocompleteTypes[p.autocompleteType] : null;
+            var placeholder = typeConfig ? typeConfig.placeholder : p.label;
             html += '<div class="autocomplete-wrapper">';
-            html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + escapeHtml(p.defaultValue) + '" placeholder="Type pathway ID or name..." autocomplete="off">';
-            html += '<div class="autocomplete-dropdown"></div>';
-            html += '</div>';
-        } else if (p.name === 'species') {
-            html += '<div class="autocomplete-wrapper">';
-            html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + escapeHtml(p.defaultValue) + '" placeholder="Type species name..." autocomplete="off">';
+            html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + escapeHtml(p.defaultValue) + '" placeholder="' + escapeHtml(placeholder) + '" autocomplete="off">';
             html += '<div class="autocomplete-dropdown"></div>';
             html += '</div>';
         } else {
@@ -491,11 +481,11 @@ function buildParamPanel(params, templateContent) {
     html += '</div>';
     $panel.html(html);
 
-    if ($('#param-pathwayId').length) {
-        initPathwayAutocomplete();
-    }
-    if ($('#param-species').length) {
-        initSpeciesAutocomplete();
+    // Initialize autocomplete fields by type (generic dispatch)
+    for (var k = 0; k < params.length; k++) {
+        if (params[k].autocompleteType) {
+            initAutocompleteField('param-' + params[k].name, params[k].autocompleteType);
+        }
     }
 
     // Trigger initial substitution with defaults
@@ -715,12 +705,20 @@ function initTreeview(tree, suffix) {
                 var handleContent = function(content) {
                     var parsed = parseRqHeaders(content);
 
-                    // Show query info in description panel (per D-01, D-02, D-08)
-                    showQueryPanel(parsed);
-
+                    // Set template state BEFORE showQueryPanel so title can render with defaults
                     if (parsed.params.length > 0) {
                         _currentTemplate = content;
                         _currentParams = parsed.params;
+                        _currentParsedTitle = parsed.title; // Cache raw title for re-rendering
+                    } else {
+                        _currentTemplate = null;
+                        _currentParams = null;
+                        _currentParsedTitle = null;
+                    }
+
+                    showQueryPanel(parsed);
+
+                    if (parsed.params.length > 0) {
                         _paramMode = true;
                         buildParamPanel(parsed.params, content);
                         // Show param section
@@ -731,8 +729,6 @@ function initTreeview(tree, suffix) {
                         updateUrl(body);
                     } else {
                         _paramMode = false;
-                        _currentTemplate = null;
-                        _currentParams = null;
                         // Hide param section
                         $('#desc-param-divider').hide();
                         $('#desc-params').hide();
@@ -895,6 +891,18 @@ function start(){
     // Live preview: update editor as user types in parameter fields
     $('#desc-params').on('input change', '.param-input', function() {
         if (_currentTemplate && _currentParams) {
+            // Dynamic title update (TMPL-07, D-03)
+            if (_currentParsedTitle) {
+                var titleView = {};
+                for (var i = 0; i < _currentParams.length; i++) {
+                    var p = _currentParams[i];
+                    var el = document.getElementById('param-' + p.name);
+                    titleView[p.name] = (el && el.value !== '') ? el.value : p.defaultValue;
+                }
+                $('#desc-title').text(Mustache.render(_currentParsedTitle, titleView));
+            }
+
+            // Existing query body substitution (unchanged)
             var substituted = substituteParams(_currentTemplate, _currentParams);
             var body = stripHeaders(substituted);
             _paramIgnoreChange = true;

@@ -133,6 +133,7 @@ jQuery(document).ready(function() {
             _paramMode = false;
             _currentTemplate = null;
             _currentParams = null;
+            _currentParsedTitle = null;
             // Clear editor (wrapped in ignore flag to prevent dim trigger)
             _paramIgnoreChange = true;
             editor.getDoc().setValue("");
