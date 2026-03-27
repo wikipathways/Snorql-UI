@@ -445,12 +445,24 @@ function initAutocomplete(inputId, fetchFn, formatFn) {
     });
 }
 
+// Legacy name-to-type map for .rq files not yet migrated to autocomplete: syntax
+var _legacyAutocompleteNames = {
+    'pathwayId': 'pathway',
+    'species': 'species'
+};
+
+function resolveAutocompleteType(param) {
+    if (param.autocompleteType) return param.autocompleteType;
+    return _legacyAutocompleteNames[param.name] || null;
+}
+
 function buildParamPanel(params, templateContent) {
     var $panel = $('#desc-params');
     var html = '<div class="param-row">';
 
     for (var i = 0; i < params.length; i++) {
         var p = params[i];
+        var acType = resolveAutocompleteType(p);
         html += '<div class="param-item">';
         html += '<label for="param-' + p.name + '">' + p.label + '</label> ';
 
@@ -461,8 +473,8 @@ function buildParamPanel(params, templateContent) {
                 html += '<option value="' + p.options[j] + '"' + selected + '>' + p.options[j] + '</option>';
             }
             html += '</select>';
-        } else if (p.autocompleteType) {
-            var typeConfig = CONFIG.autocompleteTypes ? CONFIG.autocompleteTypes[p.autocompleteType] : null;
+        } else if (acType) {
+            var typeConfig = CONFIG.autocompleteTypes ? CONFIG.autocompleteTypes[acType] : null;
             var placeholder = typeConfig ? typeConfig.placeholder : p.label;
             html += '<div class="autocomplete-wrapper">';
             html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + escapeHtml(p.defaultValue) + '" placeholder="' + escapeHtml(placeholder) + '" autocomplete="off">';
@@ -478,10 +490,11 @@ function buildParamPanel(params, templateContent) {
     html += '</div>';
     $panel.html(html);
 
-    // Initialize autocomplete fields by type (generic dispatch)
+    // Initialize autocomplete fields by type or legacy name fallback
     for (var k = 0; k < params.length; k++) {
-        if (params[k].autocompleteType) {
-            initAutocompleteField('param-' + params[k].name, params[k].autocompleteType);
+        var acTypeName = resolveAutocompleteType(params[k]);
+        if (acTypeName) {
+            initAutocompleteField('param-' + params[k].name, acTypeName);
         }
     }
 
