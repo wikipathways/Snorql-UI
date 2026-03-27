@@ -445,9 +445,6 @@ function initAutocomplete(inputId, fetchFn, formatFn) {
     });
 }
 
-    fetchSpeciesList();
-}
-
 function buildParamPanel(params, templateContent) {
     var $panel = $('#desc-params');
     var html = '<div class="param-row">';
