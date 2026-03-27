@@ -53,7 +53,11 @@ Plans:
   1. When user changes a parameter value in the form, the query title in the description panel updates to reflect the current selection (e.g., "Count of [Genes] in [Homo sapiens]")
   2. User can select entity types, datasources, and other domain-specific values via autocomplete dropdowns in the parameter form (not just pathwayId and species)
   3. New autocomplete types are dispatched by the `#param` type field, not by parameter name matching
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [x] 07-01-PLAN.md -- Autocomplete type registry, generic functions, parser extension
+- [x] 07-02-PLAN.md -- Type-dispatched buildParamPanel, dynamic title rendering
 
 **UI hint**: yes
 
@@ -82,7 +86,7 @@ Phases execute in numeric order: 6 -> 7 -> 8
 | 4. Fork Experience | v1.0 | 2/2 | Complete | 2026-03-06 |
 | 5. Stale Reference Cleanup & Docs Alignment | v1.0 | 1/1 | Complete | 2026-03-06 |
 | 6. Description Panel | v1.1 | 0/2 | Planned | - |
-| 7. Template Infrastructure | v1.1 | 0/? | Not started | - |
+| 7. Template Infrastructure | v1.1 | 0/2 | Planned | - |
 | 8. Template Consolidation | v1.1 | 0/? | Not started | - |
 
 ---
