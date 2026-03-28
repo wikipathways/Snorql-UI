@@ -9,12 +9,12 @@ Requirements for v1.1 Query Templates & UI Enhancements. Each maps to roadmap ph
 
 ### Template Consolidation
 
-- [ ] **TMPL-01**: User can run a single parameterized datacounts query instead of multiple near-duplicate queries
-- [ ] **TMPL-02**: User can run a single parameterized average-count query instead of multiple near-duplicate queries
-- [ ] **TMPL-03**: User can run a single parameterized datasource-count query instead of multiple near-duplicate queries
-- [ ] **TMPL-04**: User can run a single parameterized entity-per-species query instead of multiple near-duplicate queries
-- [ ] **TMPL-05**: User can run a single parameterized community stats query instead of multiple near-duplicate queries
-- [ ] **TMPL-06**: User can run a single parameterized "X of pathway" query instead of multiple near-duplicate queries
+- [x] **TMPL-01**: User can run a single parameterized datacounts query instead of multiple near-duplicate queries
+- [x] **TMPL-02**: User can run a single parameterized average-count query instead of multiple near-duplicate queries
+- [x] **TMPL-03**: User can run a single parameterized datasource-count query instead of multiple near-duplicate queries
+- [x] **TMPL-04**: User can run a single parameterized entity-per-species query instead of multiple near-duplicate queries
+- [x] **TMPL-05**: User can run a single parameterized community stats query instead of multiple near-duplicate queries
+- [x] **TMPL-06**: User can run a single parameterized "X of pathway" query instead of multiple near-duplicate queries
 - [ ] **TMPL-07**: Query title updates dynamically when user changes parameter values in the form
 - [ ] **TMPL-08**: User can select entity types, datasources, and other domain values via autocomplete dropdowns (beyond pathwayId/species)
 
@@ -51,12 +51,12 @@ Requirements for v1.1 Query Templates & UI Enhancements. Each maps to roadmap ph
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TMPL-01 | Phase 8 | Pending |
-| TMPL-02 | Phase 8 | Pending |
-| TMPL-03 | Phase 8 | Pending |
-| TMPL-04 | Phase 8 | Pending |
-| TMPL-05 | Phase 8 | Pending |
-| TMPL-06 | Phase 8 | Pending |
+| TMPL-01 | Phase 8 | Complete |
+| TMPL-02 | Phase 8 | Complete |
+| TMPL-03 | Phase 8 | Complete |
+| TMPL-04 | Phase 8 | Complete |
+| TMPL-05 | Phase 8 | Complete |
+| TMPL-06 | Phase 8 | Complete |
 | TMPL-07 | Phase 7 | Pending |
 | TMPL-08 | Phase 7 | Pending |
 | DESC-01 | Phase 6 | Complete |

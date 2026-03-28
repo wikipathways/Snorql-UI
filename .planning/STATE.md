@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Query Templates & UI Enhancements
-status: executing
-stopped_at: Phase 7 UI-SPEC approved
-last_updated: "2026-03-27T11:54:33.279Z"
-last_activity: 2026-03-27
+status: verifying
+stopped_at: Completed 08-03-PLAN.md
+last_updated: "2026-03-28T18:16:41.984Z"
+last_activity: 2026-03-28
 progress:
   total_phases: 3
-  completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
+  completed_phases: 3
+  total_plans: 7
+  completed_plans: 7
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-26)
 
 **Core value:** Non-technical users can find, understand, and run SPARQL queries without knowing the query language
-**Current focus:** Phase 07 — template-infrastructure
+**Current focus:** Phase 08 — template-consolidation
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
-Status: Executing Phase 07
-Last activity: 2026-03-27
+Phase: 08 (template-consolidation) — EXECUTING
+Plan: 3 of 3
+Status: Phase complete — ready for verification
+Last activity: 2026-03-28
 
 Progress: [..........] 0% (v1.1)
 
@@ -55,6 +55,10 @@ Recent decisions affecting current work:
 - [Phase 06]: Removed h4 SPARQL Query heading; description panel title serves same purpose
 - [Phase 06]: Kept existing generic autocomplete CSS alongside new desc-params scoped autocomplete CSS
 - [Phase 06]: dimPanel() only triggers from active state to prevent double-dim
+- [Phase 08]: Added escapeHtml helper using DOM-based escaping for XSS protection on enum labels
+- [Phase 08]: Excluded Pathway from entityType enums (dual type requires different SPARQL structure)
+- [Phase 08]: Dropped fn:substring from datasource template (offset varies per datasource, returns full URI)
+- [Phase 08]: Deleted AOP/allPathways.ttl SHACL metadata alongside .rq files (superseded by template)
 
 ### Pending Todos
 
@@ -67,6 +71,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-27T09:34:03.014Z
-Stopped at: Phase 7 UI-SPEC approved
-Resume file: .planning/phases/07-template-infrastructure/07-UI-SPEC.md
+Last session: 2026-03-28T18:16:41.976Z
+Stopped at: Completed 08-03-PLAN.md
+Resume file: None

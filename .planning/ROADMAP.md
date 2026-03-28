@@ -74,9 +74,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 08-01-PLAN.md -- Enum value=label parsing, community autocomplete type, cur: namespace
-- [ ] 08-02-PLAN.md -- Datacounts, average, datasource, per-species templates (TMPL-01 to TMPL-04)
-- [ ] 08-03-PLAN.md -- Community templates (TMPL-05), X-of-pathway migration (TMPL-06), cleanup
+- [x] 08-01-PLAN.md -- Enum value=label parsing, community autocomplete type, cur: namespace
+- [x] 08-02-PLAN.md -- Datacounts, average, datasource, per-species templates (TMPL-01 to TMPL-04)
+- [x] 08-03-PLAN.md -- Community templates (TMPL-05), X-of-pathway migration (TMPL-06), cleanup
 
 ## Progress
 
