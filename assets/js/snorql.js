@@ -255,12 +255,6 @@ function stripHeaders(content) {
     return lines.slice(startIndex).join('\n');
 }
 
-function escapeHtml(str) {
-    var div = document.createElement('div');
-    div.appendChild(document.createTextNode(str));
-    return div.innerHTML;
-}
-
 function fetchAutocompleteData(typeName) {
     if (_autocompleteCache[typeName]) {
         return $.Deferred().resolve(_autocompleteCache[typeName]).promise();
