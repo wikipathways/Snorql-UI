@@ -103,7 +103,14 @@ function parseRqHeaders(content) {
                 var paramOptions = null;
 
                 if (paramType.indexOf('enum:') === 0) {
-                    paramOptions = paramType.substring(5).split(',').map(function(o) { return o.trim(); });
+                    var rawOptions = paramType.substring(5).split(',').map(function(o) { return o.trim(); });
+                    paramOptions = rawOptions.map(function(o) {
+                        var eqIdx = o.indexOf('=');
+                        if (eqIdx > 0) {
+                            return { value: o.substring(0, eqIdx), label: o.substring(eqIdx + 1) };
+                        }
+                        return { value: o, label: o };
+                    });
                     paramType = 'enum';
                 }
 
@@ -145,9 +152,16 @@ function sanitizeSparqlUri(value) {
     return value;
 }
 
+function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
+
 function sanitizeEnumValue(value, allowedOptions) {
-    if (allowedOptions && allowedOptions.indexOf(value) !== -1) {
-        return value;
+    if (!allowedOptions) return null;
+    for (var i = 0; i < allowedOptions.length; i++) {
+        if (allowedOptions[i].value === value) return value;
     }
     return null;
 }
@@ -207,8 +221,9 @@ function buildParamPanel(params, templateContent) {
         if (p.type === 'enum' && p.options) {
             html += '<select class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '">';
             for (var j = 0; j < p.options.length; j++) {
-                var selected = (p.options[j] === p.defaultValue) ? ' selected' : '';
-                html += '<option value="' + p.options[j] + '"' + selected + '>' + p.options[j] + '</option>';
+                var opt = p.options[j];
+                var selected = (opt.value === p.defaultValue) ? ' selected' : '';
+                html += '<option value="' + opt.value + '"' + selected + '>' + escapeHtml(opt.label) + '</option>';
             }
             html += '</select>';
         } else {
