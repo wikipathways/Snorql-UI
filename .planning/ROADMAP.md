@@ -71,7 +71,12 @@ Plans:
   3. Each consolidated template has a descriptive title, description, and category that display correctly in the description panel
   4. The total number of example queries in the tree view is visibly reduced (30+ individual queries become 6-10 templates)
   5. Selecting different parameter values in any consolidated template updates the live SPARQL preview in the editor
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 08-01-PLAN.md -- Enum value=label parsing, community autocomplete type, cur: namespace
+- [ ] 08-02-PLAN.md -- Datacounts, average, datasource, per-species templates (TMPL-01 to TMPL-04)
+- [ ] 08-03-PLAN.md -- Community templates (TMPL-05), X-of-pathway migration (TMPL-06), cleanup
 
 ## Progress
 
@@ -87,7 +92,7 @@ Phases execute in numeric order: 6 -> 7 -> 8
 | 5. Stale Reference Cleanup & Docs Alignment | v1.0 | 1/1 | Complete | 2026-03-06 |
 | 6. Description Panel | v1.1 | 0/2 | Planned | - |
 | 7. Template Infrastructure | v1.1 | 0/2 | Planned | - |
-| 8. Template Consolidation | v1.1 | 0/? | Not started | - |
+| 8. Template Consolidation | v1.1 | 0/3 | Not started | - |
 
 ---
 *Full v1.0 details: .planning/milestones/v1.0-ROADMAP.md*
