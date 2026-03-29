@@ -66,19 +66,6 @@ jQuery(document).ready(function() {
 
         //---------------- Populate query from URL (if available) -----------------------
 
-        function findGetParameter(parameterName) {
-            var result = null,
-                tmp = [];
-            location.search
-                .substr(1)
-                .split("&")
-                .forEach(function (item) {
-                  tmp = item.split("=");
-                  if (tmp[0] === parameterName) result = decodeURIComponent(tmp[1]);
-                });
-            return result;
-        }
-
         var query = findGetParameter("q");
         if(query != null){
             editor.getDoc().setValue(query);
@@ -103,9 +90,6 @@ jQuery(document).ready(function() {
           if (typeof _fullTreeData !== 'undefined' && _fullTreeData) {
               initTreeview(JSON.parse(JSON.stringify(_fullTreeData)), '');
           }
-          // Reset category filter
-          $('#category-filter button').removeClass('active');
-          $('#category-filter button[data-category="all"]').addClass('active');
         });
 
         //---------------- Search funcionality ends ------------------------
@@ -127,9 +111,6 @@ jQuery(document).ready(function() {
           if (typeof _fullTreeData !== 'undefined' && _fullTreeData) {
               initTreeview(JSON.parse(JSON.stringify(_fullTreeData)), '-fs');
           }
-          // Reset category filter
-          $('#category-filter-fs button').removeClass('active');
-          $('#category-filter-fs button[data-category="all"]').addClass('active');
         });
 
         //---------------- Search funcionality Fullscreen ends ------------------------
@@ -147,8 +128,18 @@ jQuery(document).ready(function() {
             });
         });
 
-		jQuery("#reset-button").on("click",function(){
+		jQuery("#reset-button").on("click", function() {
+            // Clear template state
+            _paramMode = false;
+            _currentTemplate = null;
+            _currentParams = null;
+            _currentParsedTitle = null;
+            // Clear editor (wrapped in ignore flag to prevent dim trigger)
+            _paramIgnoreChange = true;
             editor.getDoc().setValue("");
+            _paramIgnoreChange = false;
+            // Show welcome panel (per D-09, D-19)
+            showWelcomePanel();
         });
 
         jQuery("#export-csv").on("click",function(){

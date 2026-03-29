@@ -4,10 +4,48 @@ var _paramMode = false;
 var _paramIgnoreChange = false;
 var _currentTemplate = null;
 var _currentParams = null;
-var _pathwayCache = null;
-var _pathwayCachePromise = null;
-var _speciesCache = null;
-var _speciesCachePromise = null;
+var _currentParsedTitle = null; // Raw Mustache title template from #title header
+var _panelState = 'welcome'; // 'welcome' | 'active' | 'stale'
+
+function showWelcomePanel() {
+    _panelState = 'welcome';
+    $('#desc-title').text(CONFIG.welcomeTitle || 'SPARQL Query Explorer');
+    $('#desc-text').html(CONFIG.welcomeMessage || '<p>Browse and run SPARQL queries.</p>');
+    $('.stale-indicator').hide();
+    $('#desc-params').hide();
+    $('#desc-param-divider').hide();
+    $('#description-panel').removeClass('panel-stale').css('opacity', 1);
+}
+
+function showQueryPanel(parsed) {
+    _panelState = 'active';
+    if (parsed.title && _currentParams && _currentParams.length > 0) {
+        // Render title with default param values (D-01, D-02)
+        var titleView = {};
+        for (var i = 0; i < _currentParams.length; i++) {
+            titleView[_currentParams[i].name] = _currentParams[i].defaultValue || '';
+        }
+        $('#desc-title').text(Mustache.render(parsed.title, titleView));
+    } else {
+        $('#desc-title').text(parsed.title || 'Query');
+    }
+    $('#desc-text').text(parsed.description || '');
+    $('.stale-indicator').hide();
+    $('#description-panel').removeClass('panel-stale').css('opacity', 1);
+    // Enable param inputs if any exist
+    $('#desc-params .param-input').prop('disabled', false);
+}
+
+function dimPanel() {
+    if (_panelState !== 'active') return; // Only dim from active state
+    _panelState = 'stale';
+    $('#description-panel').addClass('panel-stale');
+    $('.stale-indicator').show();
+    // Disable param inputs per D-17
+    $('#desc-params .param-input').prop('disabled', true);
+}
+var _autocompleteCache = {};
+var _autocompleteCachePromise = {};
 
 function setCookie(cname, cvalue){
     var d = new Date();
@@ -50,6 +88,8 @@ function findGetParameter(parameterName) {
 }
 
 function changeEndpoint() {
+    _autocompleteCache = {};
+    _autocompleteCachePromise = {};
     checkEndpointHealth();
 }
 
@@ -69,7 +109,7 @@ function getPrefixes(){
 }
 
 function parseRqHeaders(content) {
-    var result = { title: null, description: null, categories: [], params: [] };
+    var result = { title: null, description: null, params: [] };
 
     var lines = content.split('\n');
     var descriptionLines = [];
@@ -95,13 +135,6 @@ function parseRqHeaders(content) {
             continue;
         }
 
-        var catMatch = line.match(/^#\s*category:\s*(.+)/i);
-        if (catMatch) {
-            var cats = catMatch[1].split(',').map(function(c) { return c.trim(); });
-            result.categories = result.categories.concat(cats);
-            continue;
-        }
-
         var paramMatch = line.match(/^#\s*param:\s*(.+)/i);
         if (paramMatch) {
             var parts = paramMatch[1].split('|');
@@ -111,15 +144,27 @@ function parseRqHeaders(content) {
                 var paramDefault = parts[2].trim();
                 var paramLabel = parts[3].trim();
                 var paramOptions = null;
+                var autocompleteTypeName = null;
 
-                if (paramType.indexOf('enum:') === 0) {
-                    paramOptions = paramType.substring(5).split(',').map(function(o) { return o.trim(); });
+                if (paramType.indexOf('autocomplete:') === 0) {
+                    autocompleteTypeName = paramType.substring(13).trim();
+                    paramType = 'autocomplete';
+                } else if (paramType.indexOf('enum:') === 0) {
+                    var rawOptions = paramType.substring(5).split(',').map(function(o) { return o.trim(); });
+                    paramOptions = rawOptions.map(function(o) {
+                        var eqIdx = o.indexOf('=');
+                        if (eqIdx > 0) {
+                            return { value: o.substring(0, eqIdx), label: o.substring(eqIdx + 1) };
+                        }
+                        return { value: o, label: o };
+                    });
                     paramType = 'enum';
                 }
 
                 result.params.push({
                     name: paramName,
                     type: paramType,
+                    autocompleteType: autocompleteTypeName,
                     defaultValue: paramDefault,
                     label: paramLabel,
                     options: paramOptions
@@ -155,9 +200,16 @@ function sanitizeSparqlUri(value) {
     return value;
 }
 
+function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
+
 function sanitizeEnumValue(value, allowedOptions) {
-    if (allowedOptions && allowedOptions.indexOf(value) !== -1) {
-        return value;
+    if (!allowedOptions) return null;
+    for (var i = 0; i < allowedOptions.length; i++) {
+        if (allowedOptions[i].value === value) return value;
     }
     return null;
 }
@@ -203,98 +255,109 @@ function stripHeaders(content) {
     return lines.slice(startIndex).join('\n');
 }
 
-function escapeHtml(str) {
-    var div = document.createElement('div');
-    div.appendChild(document.createTextNode(str));
-    return div.innerHTML;
-}
-
-function fetchPathwayList() {
-    if (_pathwayCache) {
-        return $.Deferred().resolve(_pathwayCache).promise();
+function fetchAutocompleteData(typeName) {
+    if (_autocompleteCache[typeName]) {
+        return $.Deferred().resolve(_autocompleteCache[typeName]).promise();
     }
-    if (_pathwayCachePromise) {
-        return _pathwayCachePromise;
+    if (_autocompleteCachePromise[typeName]) {
+        return _autocompleteCachePromise[typeName];
     }
 
+    var typeConfig = CONFIG.autocompleteTypes ? CONFIG.autocompleteTypes[typeName] : null;
+    if (!typeConfig) {
+        console.warn('Autocomplete type "' + typeName + '" not found in registry');
+        return $.Deferred().resolve([]).promise();
+    }
+
+    // Static values - no SPARQL needed
+    if (typeConfig.staticValues) {
+        var list = typeConfig.staticValues.map(function(v) {
+            var item = {};
+            item[typeConfig.valueField] = v;
+            return item;
+        });
+        _autocompleteCache[typeName] = list;
+        return $.Deferred().resolve(list).promise();
+    }
+
+    // SPARQL fetch
     var endpoint = document.getElementById('endpoint').value.trim();
-    var sparql = 'PREFIX dcterms: <http://purl.org/dc/terms/>\n' +
-        'PREFIX dc: <http://purl.org/dc/elements/1.1/>\n' +
-        'PREFIX wp: <http://vocabularies.wikipathways.org/wp#>\n' +
-        'SELECT DISTINCT (str(?wpId) as ?id) (str(?title) as ?name) (str(?orgName) as ?species)\n' +
-        'WHERE { ?pw a wp:Pathway ; dcterms:identifier ?wpId ; dc:title ?title ; wp:organismName ?orgName . }\n' +
-        'ORDER BY ?wpId';
-
-    var url = endpoint + '?query=' + encodeURIComponent(sparql) + '&output=json';
+    var url = endpoint + '?query=' + encodeURIComponent(typeConfig.sparql) + '&output=json';
 
     var deferred = $.Deferred();
-    $.ajax({
-        url: url,
-        dataType: 'json'
-    }).done(function(json) {
+    $.ajax({ url: url, dataType: 'json' }).done(function(json) {
         var list = [];
         if (json && json.results && json.results.bindings) {
             for (var i = 0; i < json.results.bindings.length; i++) {
                 var b = json.results.bindings[i];
-                list.push({
-                    id: b.id ? b.id.value : '',
-                    title: b.name ? b.name.value : '',
-                    species: b.species ? b.species.value : ''
-                });
-            }
-        }
-        _pathwayCache = list;
-        _pathwayCachePromise = null;
-        deferred.resolve(list);
-    }).fail(function() {
-        _pathwayCachePromise = null;
-        deferred.resolve([]);
-    });
-
-    _pathwayCachePromise = deferred.promise();
-    return _pathwayCachePromise;
-}
-
-function fetchSpeciesList() {
-    if (_speciesCache) {
-        return $.Deferred().resolve(_speciesCache).promise();
-    }
-    if (_speciesCachePromise) {
-        return _speciesCachePromise;
-    }
-
-    var endpoint = document.getElementById('endpoint').value.trim();
-    var sparql = 'PREFIX wp: <http://vocabularies.wikipathways.org/wp#>\n' +
-        'SELECT DISTINCT ?species WHERE {\n' +
-        '  ?pw a wp:Pathway ; wp:organismName ?species .\n' +
-        '} ORDER BY ?species';
-
-    var url = endpoint + '?query=' + encodeURIComponent(sparql) + '&output=json';
-
-    var deferred = $.Deferred();
-    $.ajax({
-        url: url,
-        dataType: 'json'
-    }).done(function(json) {
-        var list = [];
-        if (json && json.results && json.results.bindings) {
-            for (var i = 0; i < json.results.bindings.length; i++) {
-                var b = json.results.bindings[i];
-                if (b.species && b.species.value) {
-                    list.push(b.species.value);
+                var item = {};
+                item[typeConfig.valueField] = b[typeConfig.valueField] ? b[typeConfig.valueField].value : '';
+                if (typeConfig.labelField && b[typeConfig.labelField]) {
+                    item[typeConfig.labelField] = b[typeConfig.labelField].value;
                 }
+                if (typeConfig.extraField && b[typeConfig.extraField]) {
+                    item[typeConfig.extraField] = b[typeConfig.extraField].value;
+                }
+                list.push(item);
             }
         }
-        _speciesCache = list;
-        _speciesCachePromise = null;
+        _autocompleteCache[typeName] = list;
+        _autocompleteCachePromise[typeName] = null;
         deferred.resolve(list);
     }).fail(function() {
-        _speciesCachePromise = null;
+        _autocompleteCachePromise[typeName] = null;
         deferred.resolve([]);
     });
 
-    _speciesCachePromise = deferred.promise();
-    return _speciesCachePromise;
+    _autocompleteCachePromise[typeName] = deferred.promise();
+    return _autocompleteCachePromise[typeName];
+}
+
+function formatAutocompleteOption(item, typeConfig) {
+    var value = item[typeConfig.valueField] || '';
+    // Multi-field display (e.g., pathway: id + name + species)
+    if (typeConfig.labelField && item[typeConfig.labelField]) {
+        var label = item[typeConfig.labelField];
+        var extra = (typeConfig.extraField && item[typeConfig.extraField])
+            ? ' <span class="autocomplete-option-species">[' + escapeHtml(item[typeConfig.extraField]) + ']</span>'
+            : '';
+        return '<div class="autocomplete-option" data-value="' + escapeHtml(value) + '">' +
+            '<span class="autocomplete-option-id">' + escapeHtml(value) + '</span> ' +
+            '<span class="autocomplete-option-title">' + escapeHtml(label) + '</span>' +
+            extra +
+            '</div>';
+    }
+    // Single-field display (e.g., species, entityType, datasource)
+    return '<div class="autocomplete-option" data-value="' + escapeHtml(value) + '">' +
+        escapeHtml(value) +
+        '</div>';
+}
+
+function initAutocompleteField(inputId, typeName) {
+    var typeConfig = CONFIG.autocompleteTypes ? CONFIG.autocompleteTypes[typeName] : null;
+    if (!typeConfig) {
+        console.warn('Autocomplete type "' + typeName + '" not found in registry');
+        return;
+    }
+    initAutocomplete(inputId, function(val, render) {
+        fetchAutocompleteData(typeName).done(function(list) {
+            var filtered = [];
+            var lowerVal = val.toLowerCase();
+            for (var i = 0; i < list.length; i++) {
+                var item = list[i];
+                // Search across all configured fields
+                var match = false;
+                if (item[typeConfig.valueField] && item[typeConfig.valueField].toLowerCase().indexOf(lowerVal) !== -1) match = true;
+                if (!match && typeConfig.labelField && item[typeConfig.labelField] && item[typeConfig.labelField].toLowerCase().indexOf(lowerVal) !== -1) match = true;
+                if (match) filtered.push(item);
+            }
+            render(filtered);
+        });
+    }, function(item) {
+        return formatAutocompleteOption(item, typeConfig);
+    });
+    // Pre-fetch data so it is cached when user first types
+    fetchAutocompleteData(typeName);
 }
 
 function initAutocomplete(inputId, fetchFn, formatFn) {
@@ -390,72 +453,40 @@ function initAutocomplete(inputId, fetchFn, formatFn) {
     });
 }
 
-function initPathwayAutocomplete() {
-    initAutocomplete('param-pathwayId', function(val, render) {
-        fetchPathwayList().done(function(list) {
-            var filtered = [];
-            for (var i = 0; i < list.length; i++) {
-                if (list[i].id.toLowerCase().indexOf(val) !== -1 ||
-                    list[i].title.toLowerCase().indexOf(val) !== -1) {
-                    filtered.push(list[i]);
-                }
-            }
-            render(filtered);
-        });
-    }, function(item) {
-        var speciesLabel = item.species ? ' <span class="autocomplete-option-species">[' + escapeHtml(item.species) + ']</span>' : '';
-        return '<div class="autocomplete-option" data-value="' + escapeHtml(item.id) + '">' +
-            '<span class="autocomplete-option-id">' + escapeHtml(item.id) + '</span> ' +
-            '<span class="autocomplete-option-title">' + escapeHtml(item.title) + '</span>' +
-            speciesLabel +
-            '</div>';
-    });
-    fetchPathwayList();
-}
+// Legacy name-to-type map for .rq files not yet migrated to autocomplete: syntax
+var _legacyAutocompleteNames = {
+    'pathwayId': 'pathway',
+    'species': 'species'
+};
 
-function initSpeciesAutocomplete() {
-    initAutocomplete('param-species', function(val, render) {
-        fetchSpeciesList().done(function(list) {
-            var filtered = [];
-            for (var i = 0; i < list.length; i++) {
-                if (list[i].toLowerCase().indexOf(val) !== -1) {
-                    filtered.push(list[i]);
-                }
-            }
-            render(filtered);
-        });
-    }, function(item) {
-        return '<div class="autocomplete-option" data-value="' + escapeHtml(item) + '">' +
-            escapeHtml(item) +
-            '</div>';
-    });
-    fetchSpeciesList();
+function resolveAutocompleteType(param) {
+    if (param.autocompleteType) return param.autocompleteType;
+    return _legacyAutocompleteNames[param.name] || null;
 }
 
 function buildParamPanel(params, templateContent) {
-    var $panel = $('#param-panel');
+    var $panel = $('#desc-params');
     var html = '<div class="param-row">';
 
     for (var i = 0; i < params.length; i++) {
         var p = params[i];
+        var acType = resolveAutocompleteType(p);
         html += '<div class="param-item">';
         html += '<label for="param-' + p.name + '">' + p.label + '</label> ';
 
         if (p.type === 'enum' && p.options) {
             html += '<select class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '">';
             for (var j = 0; j < p.options.length; j++) {
-                var selected = (p.options[j] === p.defaultValue) ? ' selected' : '';
-                html += '<option value="' + p.options[j] + '"' + selected + '>' + p.options[j] + '</option>';
+                var opt = p.options[j];
+                var selected = (opt.value === p.defaultValue) ? ' selected' : '';
+                html += '<option value="' + opt.value + '"' + selected + '>' + escapeHtml(opt.label) + '</option>';
             }
             html += '</select>';
-        } else if (p.name === 'pathwayId') {
+        } else if (acType) {
+            var typeConfig = CONFIG.autocompleteTypes ? CONFIG.autocompleteTypes[acType] : null;
+            var placeholder = typeConfig ? typeConfig.placeholder : p.label;
             html += '<div class="autocomplete-wrapper">';
-            html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + escapeHtml(p.defaultValue) + '" placeholder="Type pathway ID or name..." autocomplete="off">';
-            html += '<div class="autocomplete-dropdown"></div>';
-            html += '</div>';
-        } else if (p.name === 'species') {
-            html += '<div class="autocomplete-wrapper">';
-            html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + escapeHtml(p.defaultValue) + '" placeholder="Type species name..." autocomplete="off">';
+            html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + escapeHtml(p.defaultValue) + '" placeholder="' + escapeHtml(placeholder) + '" autocomplete="off">';
             html += '<div class="autocomplete-dropdown"></div>';
             html += '</div>';
         } else {
@@ -466,13 +497,14 @@ function buildParamPanel(params, templateContent) {
     }
 
     html += '</div>';
-    $panel.html(html).show();
+    $panel.html(html);
 
-    if ($('#param-pathwayId').length) {
-        initPathwayAutocomplete();
-    }
-    if ($('#param-species').length) {
-        initSpeciesAutocomplete();
+    // Initialize autocomplete fields by type or legacy name fallback
+    for (var k = 0; k < params.length; k++) {
+        var acTypeName = resolveAutocompleteType(params[k]);
+        if (acTypeName) {
+            initAutocompleteField('param-' + params[k].name, acTypeName);
+        }
     }
 
     // Trigger initial substitution with defaults
@@ -629,14 +661,12 @@ function enrichTreeWithMetadata(tree) {
             var meta = parseRqHeaders(content);
             node.text = meta.title || cleanFilename(node.originalFilename || node.text);
             node.description = meta.description || '';
-            node.categories = meta.categories || [];
             node.queryContent = content;
             return node;
         }, function() {
             // If individual file fetch fails, use cleaned filename
             node.text = cleanFilename(node.originalFilename || node.text);
             node.description = '';
-            node.categories = [];
             node.queryContent = null;
             return node;
         });
@@ -645,66 +675,6 @@ function enrichTreeWithMetadata(tree) {
     return $.when.apply($, promises).then(function() {
         return tree;
     });
-}
-
-function collectCategories(nodes, categorySet) {
-    if (!nodes) return;
-    nodes.forEach(function(node) {
-        if (node.categories && node.categories.length > 0) {
-            node.categories.forEach(function(c) { categorySet.add(c); });
-        }
-        if (node.nodes) {
-            collectCategories(node.nodes, categorySet);
-        }
-    });
-}
-
-function buildCategoryFilter(treeData, suffix) {
-    var categories = new Set();
-    collectCategories(treeData, categories);
-
-    if (categories.size === 0) return;
-
-    var $container = $('#category-filter' + suffix);
-    $container.empty();
-
-    var html = '<button class="btn btn-default btn-xs active" data-category="all">All</button>';
-    categories.forEach(function(cat) {
-        html += '<button class="btn btn-default btn-xs" data-category="' + cat + '">' + cat + '</button>';
-    });
-    $container.html(html);
-
-    $container.on('click', 'button', function() {
-        $container.find('button').removeClass('active');
-        $(this).addClass('active');
-
-        var selectedCategory = $(this).data('category');
-        if (selectedCategory === 'all') {
-            initTreeview(JSON.parse(JSON.stringify(_fullTreeData)), suffix);
-        } else {
-            var filtered = filterTreeByCategory(_fullTreeData, selectedCategory);
-            initTreeview(filtered, suffix);
-        }
-    });
-}
-
-function filterTreeByCategory(nodes, category) {
-    var result = [];
-    nodes.forEach(function(node) {
-        if (node.nodes) {
-            var filteredChildren = filterTreeByCategory(node.nodes, category);
-            if (filteredChildren.length > 0) {
-                var folderCopy = JSON.parse(JSON.stringify(node));
-                folderCopy.nodes = filteredChildren;
-                result.push(folderCopy);
-            }
-        } else {
-            if (node.categories && node.categories.indexOf(category) !== -1) {
-                result.push(JSON.parse(JSON.stringify(node)));
-            }
-        }
-    });
-    return result;
 }
 
 function filterTreeBySearch(nodes, lowerPattern) {
@@ -721,14 +691,6 @@ function filterTreeBySearch(nodes, lowerPattern) {
             var matches = false;
             if (node.text && node.text.toLowerCase().indexOf(lowerPattern) !== -1) matches = true;
             if (!matches && node.description && node.description.toLowerCase().indexOf(lowerPattern) !== -1) matches = true;
-            if (!matches && node.categories) {
-                for (var i = 0; i < node.categories.length; i++) {
-                    if (node.categories[i].toLowerCase().indexOf(lowerPattern) !== -1) {
-                        matches = true;
-                        break;
-                    }
-                }
-            }
             if (matches) {
                 result.push(JSON.parse(JSON.stringify(node)));
             }
@@ -744,10 +706,6 @@ function searchExamples(pattern, suffix) {
     var filtered = filterTreeBySearch(_fullTreeData, lowerPattern);
 
     initTreeview(filtered, suffix);
-
-    // Reset category filter to "All" since search operates on full data
-    $('#category-filter' + suffix + ' button').removeClass('active');
-    $('#category-filter' + suffix + ' button[data-category="all"]').addClass('active');
 }
 
 function initTreeview(tree, suffix) {
@@ -766,30 +724,33 @@ function initTreeview(tree, suffix) {
                 var handleContent = function(content) {
                     var parsed = parseRqHeaders(content);
 
-                    // Show title and description
-                    var $info = $('#query-info');
-                    if (parsed.title || parsed.description) {
-                        var infoHtml = '';
-                        if (parsed.title) infoHtml += '<strong>' + parsed.title + '</strong>';
-                        if (parsed.description) infoHtml += '<span class="text-muted"> &mdash; ' + parsed.description + '</span>';
-                        $info.html(infoHtml).show();
-                    } else {
-                        $info.hide();
-                    }
-
+                    // Set template state BEFORE showQueryPanel so title can render with defaults
                     if (parsed.params.length > 0) {
                         _currentTemplate = content;
                         _currentParams = parsed.params;
+                        _currentParsedTitle = parsed.title; // Cache raw title for re-rendering
+                    } else {
+                        _currentTemplate = null;
+                        _currentParams = null;
+                        _currentParsedTitle = null;
+                    }
+
+                    showQueryPanel(parsed);
+
+                    if (parsed.params.length > 0) {
                         _paramMode = true;
                         buildParamPanel(parsed.params, content);
+                        // Show param section
+                        $('#desc-param-divider').show();
+                        $('#desc-params').show();
                         var substituted = substituteParams(content, parsed.params);
                         var body = stripHeaders(substituted);
                         updateUrl(body);
                     } else {
                         _paramMode = false;
-                        _currentTemplate = null;
-                        _currentParams = null;
-                        $('#param-panel').slideUp();
+                        // Hide param section
+                        $('#desc-param-divider').hide();
+                        $('#desc-params').hide();
                         var body = stripHeaders(content);
                         _paramIgnoreChange = true;
                         editor.getDoc().setValue(body);
@@ -847,7 +808,6 @@ function fetchExamples(suffix) {
     if (cached) {
         _fullTreeData = JSON.parse(JSON.stringify(cached));
         initTreeview(cached, suffix);
-        buildCategoryFilter(_fullTreeData, suffix);
         return;
     }
 
@@ -862,7 +822,6 @@ function fetchExamples(suffix) {
         setCachedExamples(repo, enrichedTree);
         _fullTreeData = JSON.parse(JSON.stringify(enrichedTree));
         initTreeview(enrichedTree, suffix);
-        buildCategoryFilter(_fullTreeData, suffix);
     }).fail(function(xhr) {
         var message = 'Could not load examples.';
         if (xhr.status === 403) {
@@ -949,8 +908,20 @@ function start(){
     $('#poweredby').text( CONFIG.poweredByLabel);
 
     // Live preview: update editor as user types in parameter fields
-    $('#param-panel').on('input change', '.param-input', function() {
+    $('#desc-params').on('input change', '.param-input', function() {
         if (_currentTemplate && _currentParams) {
+            // Dynamic title update (TMPL-07, D-03)
+            if (_currentParsedTitle) {
+                var titleView = {};
+                for (var i = 0; i < _currentParams.length; i++) {
+                    var p = _currentParams[i];
+                    var el = document.getElementById('param-' + p.name);
+                    titleView[p.name] = (el && el.value !== '') ? el.value : p.defaultValue;
+                }
+                $('#desc-title').text(Mustache.render(_currentParsedTitle, titleView));
+            }
+
+            // Existing query body substitution (unchanged)
             var substituted = substituteParams(_currentTemplate, _currentParams);
             var body = stripHeaders(substituted);
             _paramIgnoreChange = true;
@@ -963,20 +934,24 @@ function start(){
         }
     });
 
-    // Manual edit detection: hide param panel when user edits the query directly
+    // Manual edit detection: dim description panel when user edits the query directly
     editor.on('change', function(cm, changeObj) {
         if (_paramIgnoreChange) return;
-        if (_paramMode && changeObj.origin !== 'setValue') {
+        if (changeObj.origin !== 'setValue' && _panelState === 'active') {
+            dimPanel();
+            // Clear template state so params don't re-fire
             _paramMode = false;
             _currentTemplate = null;
             _currentParams = null;
-            $('#param-panel').slideUp();
         }
     });
 
     // Initialize endpoint health indicator
     $('#endpoint-health-dot').tooltip({ placement: 'bottom', trigger: 'hover' });
     checkEndpointHealth();
+
+    // Show welcome panel on page load (per D-09)
+    showWelcomePanel();
 }
 
 function showQuerySpinner() {
