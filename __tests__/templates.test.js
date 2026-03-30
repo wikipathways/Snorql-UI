@@ -1,15 +1,17 @@
 /**
+ * @jest-environment node
+ *
  * Tests for .rq template files - header syntax validation
  * Gaps 7-9: TMPL-01 through TMPL-06 .rq file structural requirements
  */
 
-const fs = require('fs');
-const path = require('path');
+const SPARQL_QUERIES_BASE = 'https://raw.githubusercontent.com/wikipathways/SPARQLQueries/master';
 
-const SPARQL_QUERIES_ROOT = '/home/marvin/Documents/Services/WikiPathways/WikiPathways-EP/SPARQLQueries';
-
-function readRq(relPath) {
-  return fs.readFileSync(path.join(SPARQL_QUERIES_ROOT, relPath), 'utf8');
+async function readRq(relPath) {
+  const url = `${SPARQL_QUERIES_BASE}/${encodeURI(relPath)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+  return res.text();
 }
 
 // Parse #param header lines from .rq content
@@ -36,7 +38,7 @@ function parseParams(content) {
 
 describe('TMPL-01: countOfEntityType.rq', () => {
   let content;
-  beforeAll(() => { content = readRq('A. Metadata/datacounts/countOfEntityType.rq'); });
+  beforeAll(async () => { content = await readRq('A. Metadata/datacounts/countOfEntityType.rq'); });
 
   test('file exists and is non-empty', () => {
     expect(content.length).toBeGreaterThan(0);
@@ -88,7 +90,7 @@ describe('TMPL-01: countOfEntityType.rq', () => {
 
 describe('TMPL-02: averagePerPathway.rq', () => {
   let content;
-  beforeAll(() => { content = readRq('A. Metadata/datacounts/averagePerPathway.rq'); });
+  beforeAll(async () => { content = await readRq('A. Metadata/datacounts/averagePerPathway.rq'); });
 
   test('file exists and is non-empty', () => {
     expect(content.length).toBeGreaterThan(0);
@@ -121,7 +123,7 @@ describe('TMPL-02: averagePerPathway.rq', () => {
 
 describe('TMPL-03: pathwaysForDatasource.rq', () => {
   let content;
-  beforeAll(() => { content = readRq('A. Metadata/datasources/pathwaysForDatasource.rq'); });
+  beforeAll(async () => { content = await readRq('A. Metadata/datasources/pathwaysForDatasource.rq'); });
 
   test('file exists and is non-empty', () => {
     expect(content.length).toBeGreaterThan(0);
@@ -168,7 +170,7 @@ describe('TMPL-03: pathwaysForDatasource.rq', () => {
 
 describe('TMPL-04: countEntityPerSpecies.rq', () => {
   let content;
-  beforeAll(() => { content = readRq('A. Metadata/species/countEntityPerSpecies.rq'); });
+  beforeAll(async () => { content = await readRq('A. Metadata/species/countEntityPerSpecies.rq'); });
 
   test('file exists and is non-empty', () => {
     expect(content.length).toBeGreaterThan(0);
@@ -205,7 +207,7 @@ describe('TMPL-04: countEntityPerSpecies.rq', () => {
 
 describe('TMPL-05: communityPathways.rq', () => {
   let content;
-  beforeAll(() => { content = readRq('B. Communities/communityPathways.rq'); });
+  beforeAll(async () => { content = await readRq('B. Communities/communityPathways.rq'); });
 
   test('file exists and is non-empty', () => {
     expect(content.length).toBeGreaterThan(0);
@@ -238,7 +240,7 @@ describe('TMPL-05: communityPathways.rq', () => {
 
 describe('TMPL-05: communityProteins.rq', () => {
   let content;
-  beforeAll(() => { content = readRq('B. Communities/communityProteins.rq'); });
+  beforeAll(async () => { content = await readRq('B. Communities/communityProteins.rq'); });
 
   test('file exists and is non-empty', () => {
     expect(content.length).toBeGreaterThan(0);
@@ -265,7 +267,7 @@ describe('TMPL-05: communityProteins.rq', () => {
 
 describe('TMPL-06: GenesofPathway.rq (autocomplete:pathway migration)', () => {
   let content;
-  beforeAll(() => { content = readRq('D. General/GenesofPathway.rq'); });
+  beforeAll(async () => { content = await readRq('D. General/GenesofPathway.rq'); });
 
   test('file exists and is non-empty', () => {
     expect(content.length).toBeGreaterThan(0);
@@ -289,7 +291,7 @@ describe('TMPL-06: GenesofPathway.rq (autocomplete:pathway migration)', () => {
 
 describe('TMPL-06: InteractionsofPathway.rq (autocomplete:pathway migration)', () => {
   let content;
-  beforeAll(() => { content = readRq('D. General/InteractionsofPathway.rq'); });
+  beforeAll(async () => { content = await readRq('D. General/InteractionsofPathway.rq'); });
 
   test('file exists and is non-empty', () => {
     expect(content.length).toBeGreaterThan(0);
@@ -313,7 +315,7 @@ describe('TMPL-06: InteractionsofPathway.rq (autocomplete:pathway migration)', (
 
 describe('TMPL-06: MetabolitesofPathway.rq (autocomplete:pathway migration)', () => {
   let content;
-  beforeAll(() => { content = readRq('D. General/MetabolitesofPathway.rq'); });
+  beforeAll(async () => { content = await readRq('D. General/MetabolitesofPathway.rq'); });
 
   test('file exists and is non-empty', () => {
     expect(content.length).toBeGreaterThan(0);
@@ -337,7 +339,7 @@ describe('TMPL-06: MetabolitesofPathway.rq (autocomplete:pathway migration)', ()
 
 describe('TMPL-06: OntologyofPathway.rq (autocomplete:pathway migration)', () => {
   let content;
-  beforeAll(() => { content = readRq('D. General/OntologyofPathway.rq'); });
+  beforeAll(async () => { content = await readRq('D. General/OntologyofPathway.rq'); });
 
   test('file exists and is non-empty', () => {
     expect(content.length).toBeGreaterThan(0);
