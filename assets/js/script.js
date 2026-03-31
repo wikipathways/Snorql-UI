@@ -19,31 +19,6 @@ function copyToClipboard(text) {
 
 jQuery(document).ready(function() {
 
-        var cookieDecision = getCookie('cookieDecision');
-
-        if (cookieDecision == "" || cookieDecision == "reject") {
-
-            $('#cookieModal').modal();
-
-            $('#cookieModal button.btn-secondary').on('click', function (e) {
-                setCookie("cookieDecision", "reject");
-		var pathQueryIndex = window.location.href.indexOf("?")
-		var path = window.location.href
-		
-		if(pathQueryIndex != -1){
-		  var newPath = window.location.href.substring(0,pathQueryIndex)
-		  window.location.href = newPath.endsWith("/") ? newPath.slice(0,-1) +"/cookies.html" : newPath +"/cookies.html";
-		}else{
-		  window.location.href = path.endsWith("/") ? path.slice(0,-1) +"/cookies.html" : path +"/cookies.html";	
-		}
-            });
-
-            $("#cookieModal button.btn-primary").on('click', function(){
-                setCookie("cookieDecision", "accept");
-                $('#cookieModal').modal('hide');
-            });
-        }
-
         jQuery("#query-button").on("click",function(event){
             event.preventDefault();
 

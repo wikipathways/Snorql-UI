@@ -47,33 +47,6 @@ function dimPanel() {
 var _autocompleteCache = {};
 var _autocompleteCachePromise = {};
 
-function setCookie(cname, cvalue){
-    var d = new Date();
-    d.setTime(d.getTime() + (365*24*60*60*1000));
-    var expires = "expires="+ d.toUTCString();
-    document.cookie = cname + "=" + cvalue+ ";" + expires + ";path=/";
-}
-
-function getCookie(cname) {
-    var name = cname + "=";
-    var ca = document.cookie.split(';');
-    for(var i = 0; i < ca.length; i++) {
-        var c = ca[i];
-        while (c.charAt(0) == ' ') {
-            c = c.substring(1);
-        }
-        if (c.indexOf(name) == 0) {
-            return c.substring(name.length, c.length);
-        }
-    }
-    return "";
-}
-
-function clearLegacyCookies() {
-    document.cookie = "endpoint=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    document.cookie = "examplesrepo=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-}
-
 function findGetParameter(parameterName) {
     var result = null,
         tmp = [];
@@ -94,7 +67,7 @@ function changeEndpoint() {
 }
 
 function changeExamplesRepo() {
-    // Removed: no longer persists to cookie
+
     // Changes are temporary (session only)
 }
 
@@ -887,9 +860,6 @@ function checkEndpointHealth() {
 }
 
 function start(){
-    // Clear legacy cookies from previous versions
-    clearLegacyCookies();
-
     // Priority: URL parameter > configured default
     var getvar_endpoint = findGetParameter("endpoint");
     if (getvar_endpoint != null) {
