@@ -1,7 +1,6 @@
 FROM httpd:2.4
  
 ADD ./assets /usr/local/apache2/htdocs/assets/
-COPY ./cookies.html /usr/local/apache2/htdocs/
 COPY ./index.html /usr/local/apache2/htdocs/
  
 ENV PATH /usr/local/apache2/bin:$PATH
