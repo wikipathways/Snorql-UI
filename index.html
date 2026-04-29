@@ -45,7 +45,7 @@
 		  </ul>	
           <form class="navbar-form navbar-right">
             <div class="input-group">
-				<span class="input-group-addon">SPARQL Endpoint</span>
+				<span class="input-group-addon">Load a SPARQL Endpoint:</span>
 				<input size="50" class="form-control mr-sm-2" name="endpoint" id="endpoint"
 				       onchange="changeEndpoint();"
 				       onkeydown="if(event.key==='Enter'){event.preventDefault();changeEndpoint();}" />
@@ -110,7 +110,7 @@
 			</div>
 			
 			<div class="col-md-4">
-				<h4>SPARQL Examples:</h4>
+				<h4>Load SPARQL Examples:</h4>
 				<div class="panel panel-default">
 				  <div class="panel-heading">
 						<div class="input-group">
@@ -130,6 +130,7 @@
 						<button type="button" class="btn btn-default" id="btn-clear-search">Clear</button>
 						<!-- </form> -->
 						<hr/>
+						<h4>Find SPARQL Examples</h4>
 						<div class="list-group" id="examples"></div>
 				  </div>
 				</div>
