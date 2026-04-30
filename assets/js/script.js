@@ -163,20 +163,60 @@ jQuery(document).ready(function() {
             $('#prefixesModal').modal().find('#prefixesModalBody');
         });
 
-        jQuery("#generate-permalink").on("click",function(e){
+        // Phase 9 — RELIAB-04: permalink guard. Refuse oversized queries with a
+        // visible inline message; surface Bitly failures (network/auth) instead
+        // of swallowing them in console.log.
+        function _showPermalinkInlineMsg(text, isError) {
+            var $msg = jQuery('#permalink-inline-msg');
+            if ($msg.length === 0) {
+                $msg = jQuery('<span id="permalink-inline-msg" class="permalink-inline-msg" style="margin-left:8px;display:inline-block;"></span>');
+                jQuery('#generate-permalink').after($msg);
+            }
+            $msg.text(text);
+            $msg.css('color', isError ? '#a94442' : '#3c763d');
+            $msg.show();
+            clearTimeout(_showPermalinkInlineMsg._timer);
+            _showPermalinkInlineMsg._timer = setTimeout(function() { $msg.fadeOut(400); }, 8000);
+        }
 
+        jQuery("#generate-permalink").on("click", function(e) {
             e.preventDefault();
 
             var query = editor.getDoc().getValue();
-	    query = query.trim()
-            query = "?q="+encodeURIComponent(query)+"&endpoint="+encodeURIComponent(jQuery("#endpoint").val().trim());
+            query = query.trim();
 
-            var url = window.location.href.split('?')[0] + query;
+            // Compute prefixed-query bytes against the Snorql page URL (not the
+            // SPARQL endpoint URL — this is the URL the recipient's browser
+            // must accept when opening the short link). Acknowledged: a query
+            // exactly at maxGetUrlBytes prefixed-encoded may refuse permalink
+            // while still executing via GET — fail-closed is correct because
+            // the "copy the query text directly" message remains accurate.
+            var endpointUrl = jQuery("#endpoint").val().trim();
+            var prefixed = (typeof prepareQueryForSend === 'function')
+                ? prepareQueryForSend(query)
+                : query;
+            var maxBytes = (window.SNORQL_CONFIG && window.SNORQL_CONFIG.maxGetUrlBytes) || 4000;
+            var permalinkBase = window.location.href.split('?')[0];
+            var encodedQuery = encodeURIComponent(prefixed);
+            var encodedEndpoint = encodeURIComponent(endpointUrl);
+            var totalBytes = permalinkBase.length
+                           + '?q='.length + encodedQuery.length
+                           + '&endpoint='.length + encodedEndpoint.length;
+
+            if (totalBytes > maxBytes) {
+                _showPermalinkInlineMsg(
+                    'Query too long to permalink (' + totalBytes + ' bytes; limit ' + maxBytes + '). ' +
+                    'Copy the query text directly to share it.',
+                    true
+                );
+                return;
+            }
+
+            var queryParam = "?q=" + encodeURIComponent(query) + "&endpoint=" + encodedEndpoint;
+            var url = permalinkBase + queryParam;
 
             var accessToken = "b0021fe4839aefbc4e7967b3578443d9ea6e89bf";
-            var params = {
-                "long_url" : url.trim()
-            };
+            var params = { "long_url" : url.trim() };
 
             $.ajax({
                 url: "https://api-ssl.bitly.com/v4/shorten",
@@ -191,8 +231,12 @@ jQuery(document).ready(function() {
             }).done(function(data) {
                 $('#permalink-url').html("<a href=\""+data.link+"\" target=\"_blank\">"+data.link+"</a>");
                 $('#permalinkModal').modal();
-            }).fail(function(data) {
-                console.log(data);
+            }).fail(function(xhr) {
+                _showPermalinkInlineMsg(
+                    'Could not shorten the permalink (Bitly request failed). ' +
+                    'You can still copy the full URL from the address bar after running the query.',
+                    true
+                );
             });
         });
     });
