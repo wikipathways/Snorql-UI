@@ -176,6 +176,36 @@ namespaces: {
 }
 ```
 
+## Reliability Tuning (v1.2)
+
+Three `CONFIG` keys in `assets/js/config.js` tune the query-execution path. All three are missing-safe — older forked `config.js` files without these keys continue to work using the documented defaults.
+
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `queryTimeoutMs` | `60000` | XHR timeout for SPARQL queries (milliseconds). Hung requests fail in bounded time. Bump for federated/heavy aggregations. |
+| `maxGetUrlBytes` | `4000` | Threshold above which queries are sent via POST instead of GET, and above which "Get Permalink" refuses with a clear message. Measured against the URL-encoded prefixed query. |
+| `sendPrefixBlock` | `'auto'` | PREFIX block delivery mode (see below). |
+
+### `sendPrefixBlock` modes
+
+- **`'auto'`** (default) — Scan the user's query for prefix references (e.g. `cur:Foo`) and prepend ONLY the matching `CONFIG.namespaces` entries that are NOT already declared inline. Recommended for forks targeting Stardog / GraphDB / Fuseki, which reject duplicate prefix declarations on strict mode.
+- **`true`** — Force-prepend every entry in `CONFIG.namespaces` that is not already declared inline. Predictable; slightly heavier URL.
+- **`false`** — Skip prepending entirely. Recommended for Virtuoso-only forks that rely on server-registered prefixes and want to minimize URL length.
+
+### CORS requirements for POST fallback
+
+When a query exceeds `maxGetUrlBytes`, Snorql sends it as `POST` with `Content-Type: application/x-www-form-urlencoded`. Together with the existing `Accept: application/sparql-results+json` header, this triggers a CORS preflight (`OPTIONS`) request. Self-hosted endpoints must respond with at least:
+
+```
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Accept, Content-Type
+Access-Control-Allow-Origin: <your origin or *>
+```
+
+The bundled `enable-cors.sh` script handles this for Virtuoso. Other engines (Fuseki, GraphDB, Stardog) ship their own CORS configuration mechanisms — consult engine docs.
+
+> **Note:** Snorql sends form-urlencoded POST only. It does NOT use `Content-Type: application/sparql-query` — that direct-body POST form has a confirmed Virtuoso bug ([virtuoso-opensource#842](https://github.com/openlink/virtuoso-opensource/issues/842)) and is intentionally locked out for v1.2.
+
 ## Troubleshooting
 
 **Queries fail with a CORS error.**
