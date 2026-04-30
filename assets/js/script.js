@@ -23,7 +23,6 @@ jQuery(document).ready(function() {
             event.preventDefault();
 
             var query = editor.getDoc().getValue();
-            var queryText = getPrefixes() + query;
 
             var queryEncoded = "?q="+encodeURIComponent(query)+"&endpoint="+encodeURIComponent(jQuery("#endpoint").val().trim());
             var url = window.location.href.split('?')[0] + queryEncoded;
@@ -119,19 +118,16 @@ jQuery(document).ready(function() {
 
         jQuery("#export-csv").on("click",function(){
             var query = editor.getDoc().getValue();
-            var queryText = getPrefixes() + query;
             exportResults(jQuery("#endpoint").val(), query, "csv");
         });
 
         jQuery("#export-json").on("click",function(){
             var query = editor.getDoc().getValue();
-            var queryText = getPrefixes() + query;
             exportResults(jQuery("#endpoint").val(), query, "json");
         });
 
         jQuery("#export-xml").on("click",function(){
             var query = editor.getDoc().getValue();
-            var queryText = getPrefixes() + query;
             exportResults(jQuery("#endpoint").val(), query, "xml");
         });
 
@@ -172,7 +168,6 @@ jQuery(document).ready(function() {
             e.preventDefault();
 
             var query = editor.getDoc().getValue();
-            var queryText = getPrefixes() + query;
 	    query = query.trim()
             query = "?q="+encodeURIComponent(query)+"&endpoint="+encodeURIComponent(jQuery("#endpoint").val().trim());
 
