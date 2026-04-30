@@ -1,0 +1,15 @@
+# title: WikiPathways for Datasource Identifiers
+# category: Data Sources
+# description: Lists pathways containing entities with identifiers from a selected
+#   data source, showing the pathway title and identifier URI.
+# param: datasource|enum:Chemspider=ChemSpider,Ensembl=Ensembl,HgncSymbol=HGNC,Hmdb=HMDB,EntrezGene=NCBI Gene,PubChem=PubChem|Ensembl|Data Source
+
+SELECT DISTINCT ?pathwayRes (str(?wpid) AS ?pathway) (str(?title) AS ?pathwayTitle) ?identifier
+WHERE {
+  ?gene dcterms:identifier ?id ;
+    dcterms:isPartOf ?pathwayRes ;
+    wp:bdb{{datasource}} ?identifier .
+  ?pathwayRes a wp:Pathway ;
+    dcterms:identifier ?wpid ;
+    dc:title ?title .
+}

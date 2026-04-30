@@ -1,0 +1,16 @@
+# title: Average Entity Type per Pathway
+# category: Metadata
+# description: Calculates the average, minimum, and maximum number of a selected
+#   entity type per pathway in WikiPathways.
+# param: entityType|enum:DataNode=Data Nodes,GeneProduct=Gene Products,Interaction=Interactions,Metabolite=Metabolites,Protein=Proteins|DataNode|Entity Type
+
+SELECT (AVG(?no) AS ?avg)
+       (MIN(?no) AS ?min)
+       (MAX(?no) AS ?max)
+WHERE {
+    SELECT ?Pathway (COUNT(?entity) AS ?no)
+    WHERE {
+    ?entity a wp:{{entityType}} ;
+       dcterms:isPartOf ?Pathway .
+    ?Pathway a wp:Pathway .}
+}

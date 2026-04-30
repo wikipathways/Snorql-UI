@@ -1,0 +1,9 @@
+# title: Count of Entity Type
+# category: Metadata
+# description: Counts the total number of a selected entity type in WikiPathways.
+# param: entityType|enum:DataNode=Data Nodes,GeneProduct=Gene Products,Interaction=Interactions,Metabolite=Metabolites,Protein=Proteins|DataNode|Entity Type
+
+SELECT DISTINCT (COUNT(?entity) AS ?count)
+WHERE {
+    ?entity a wp:{{entityType}} .
+}

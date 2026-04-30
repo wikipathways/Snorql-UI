@@ -1,0 +1,18 @@
+# title: Genes of a Pathway
+# category: General
+# description: Lists all gene products in a given pathway, returning the pathway
+#   identifier and gene product labels.
+# param: pathwayId|autocomplete:pathway|WP1560|Pathway ID
+
+select distinct ?pathway (str(?label) as ?geneProduct) where {
+    {
+        SELECT ?pathwayRev ?pathway WHERE {
+            ?pathwayRev dcterms:identifier "{{pathwayId}}" .
+            ?pathwayRev a wp:Pathway .
+            ?pathwayRev dc:identifier ?pathway .
+        }
+    }
+    ?geneProduct dcterms:isPartOf ?pathwayRev .
+    ?geneProduct a wp:GeneProduct .
+    ?geneProduct rdfs:label ?label .
+}

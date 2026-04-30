@@ -1,0 +1,14 @@
+# title: Entity Type per Species
+# category: Metadata
+# description: Counts the number of distinct entities of a selected type per species
+#   in WikiPathways, ordered by count descending.
+# param: entityType|enum:DataNode=Data Nodes,GeneProduct=Gene Products,Metabolite=Metabolites,Protein=Proteins|DataNode|Entity Type
+
+SELECT (COUNT(DISTINCT ?entity) AS ?count) (str(?label) AS ?species)
+WHERE {
+  ?entity a wp:{{entityType}} ;
+    dcterms:isPartOf ?pw .
+  ?pw dc:title ?title ;
+    wp:organism ?organism ;
+    wp:organismName ?label .
+} GROUP BY ?label ORDER BY DESC(?count)

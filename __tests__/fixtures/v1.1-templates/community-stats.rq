@@ -1,0 +1,11 @@
+# title: Community Pathways
+# category: Communities
+# description: Lists all pathways tagged with a selected community curation tag.
+# param: community|autocomplete:community|AOP|Community
+
+SELECT DISTINCT ?pathway (str(?title) AS ?PathwayTitle)
+WHERE {
+  ?pathway wp:ontologyTag cur:{{community}} ;
+    a wp:Pathway ;
+    dc:title ?title .
+}
