@@ -349,7 +349,14 @@ SPARQL.Query = function(service, priority) {
 				}
 
 				xhr.open(_method, url, true /* async */);
-				
+
+                // Phase 9 — RELIAB-05: bounded-time XHR timeout.
+                // Read from CONFIG with missing-safe fallback so older forks work.
+                var _phase9TimeoutMs = (typeof window !== 'undefined'
+                    && window.SNORQL_CONFIG
+                    && window.SNORQL_CONFIG.queryTimeoutMs) || 60000;
+                xhr.timeout = _phase9TimeoutMs;
+
 				// set the headers, including the content-type for POSTed queries
 				for (var header in this.requestHeaders())
                     if (typeof(this.requestHeaders()[header]) != "function")
@@ -373,10 +380,22 @@ SPARQL.Query = function(service, priority) {
 				};
 				
 				// I've seen some strange race-condition behavior (strange since normally
-				// JS is single-threaded, so synchronization conditions don't occur barring 
+				// JS is single-threaded, so synchronization conditions don't occur barring
 				// reentrancy) with onreadystatechange. Instead, we poll asynchronously to
 				// determine when the request is done.
-				var token = window.setInterval(
+                var token;   // forward-declared so xhr.ontimeout (set below) can clearInterval it
+
+                // Phase 9 — RELIAB-05: on timeout, set flag (consumed by snorql.js
+                // onFailure to render the friendly "Network timeout" message),
+                // clear the poll interval so it doesn't outlive the request,
+                // and route through the existing failure callback path.
+                xhr.ontimeout = function() {
+                    xhr._timeoutFired = true;
+                    if (token) { window.clearInterval(token); }
+                    callbackData.failure.apply(callbackData.scope, [xhr, callbackData.argument]);
+                };
+
+				token = window.setInterval(
 					function () {
 						if (xhr.readyState == 4) { // ready!
 							// clear this handler
@@ -389,7 +408,7 @@ SPARQL.Query = function(service, priority) {
 						}
 					},
 					200 /* maybe this should be customizable */
-				);			
+				);
 	
 				xhr.send(content);
 			} catch (e) {
