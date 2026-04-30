@@ -176,6 +176,28 @@ function getPrefixes(query) {
     return prepareQueryForSend(q);
 }
 
+// ---- Phase 9 — RELIAB-03: GET → POST length switch ----
+// Returns 'POST' when the URL-encoded prefixed query plus endpoint plus
+// standard query-string parameters would exceed CONFIG.maxGetUrlBytes
+// (default 4000 bytes — well under nginx 8K and Cloudflare 8K limits).
+// Returns 'GET' otherwise. Per CONTEXT decision 4, the threshold is
+// computed against the PREFIXED query (output of prepareQueryForSend),
+// not the raw user query — otherwise the threshold leaks ~50–250 bytes.
+//
+// The single threshold (CONFIG.maxGetUrlBytes) gates BOTH the method switch
+// and Plan 06's permalink refusal — one mental model for the user.
+function chooseMethod(endpoint, prefixedQuery) {
+    var maxBytes = (window.SNORQL_CONFIG && window.SNORQL_CONFIG.maxGetUrlBytes) || 4000;
+    var defaultGraph = (window.SNORQL_CONFIG && window.SNORQL_CONFIG.defaultGraph) || '';
+    var dgPart = defaultGraph ? ('&default-graph-uri=' + encodeURIComponent(defaultGraph)) : '';
+    var estimated = endpoint.length
+                  + '?query='.length
+                  + encodeURIComponent(prefixedQuery).length
+                  + '&output=json'.length
+                  + dgPart.length;
+    return estimated > maxBytes ? 'POST' : 'GET';
+}
+
 function parseRqHeaders(content) {
     var result = { title: null, description: null, params: [] };
 
@@ -1034,7 +1056,8 @@ function hideQuerySpinner() {
 function doQuery(url, sparql, callback) {
 
     service = new SPARQL.Service(url);
-    service.setMethod('GET');
+    var _phase9Prefixed = prepareQueryForSend(sparql);   // RELIAB-03: compute once for chooseMethod + service.query (declare-once-reuse-twice)
+    service.setMethod(chooseMethod(url, _phase9Prefixed));
     if (CONFIG.defaultGraph != "") {
         service.addDefaultGraph(CONFIG.defaultGraph);
     }
@@ -1043,7 +1066,7 @@ function doQuery(url, sparql, callback) {
     service.setOutput('json');
 
     showQuerySpinner();
-    service.query(prepareQueryForSend(sparql), {
+    service.query(_phase9Prefixed, {
             success: callback,
             failure: onFailure
     });
@@ -1374,7 +1397,8 @@ function nodeToHTML(node, linkMaker) {
 function exportResults(url, sparql, type, output) {
 
     service = new SPARQL.Service(url);
-    service.setMethod('GET');
+    var _phase9Prefixed = prepareQueryForSend(sparql);   // RELIAB-03: compute once for chooseMethod + service.query (declare-once-reuse-twice)
+    service.setMethod(chooseMethod(url, _phase9Prefixed));
     if (CONFIG.defaultGraph != "") {
         service.addDefaultGraph(CONFIG.defaultGraph);
     }
@@ -1387,7 +1411,7 @@ function exportResults(url, sparql, type, output) {
         service.setOutput(type);
     }
 
-    service.query(prepareQueryForSend(sparql), {
+    service.query(_phase9Prefixed, {
             success: function(json) { renderOutput(json, type); },
             failure: onExportFailure
     });
