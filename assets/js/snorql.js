@@ -1073,6 +1073,31 @@ function doQuery(url, sparql, callback) {
 }
 
 var SPARQL_ERROR_PATTERNS = [
+    // ---- Phase 9 — RELIAB-02: status-code-driven friendly errors ----
+    // These entries are matched BEFORE the body-pattern entries below.
+    // Each carries a statusCodes:[..] array; onFailure (below) checks
+    // statusCodes first, then falls through to body-pattern matching.
+    {
+        statusCodes: [504, 524],
+        message: 'The connection to the SPARQL server timed out.',
+        hint: 'The server may be busy. Try again, or simplify your query (add LIMIT, narrow filters).'
+    },
+    {
+        statusCodes: [502],
+        message: 'The SPARQL gateway returned a bad-gateway error.',
+        hint: 'The endpoint may be down. Try again in a moment.'
+    },
+    {
+        statusCodes: [503],
+        message: 'The SPARQL server is temporarily unavailable.',
+        hint: 'Try again in a moment.'
+    },
+    {
+        statusCodes: [500],
+        pattern: /transaction.*timed|timed.*out/i,
+        message: 'The query took longer than the server allows.',
+        hint: 'Try adding LIMIT, narrowing filters, or simplifying joins.'
+    },
     {
         pattern: /Syntax error/i,
         message: 'There is a syntax error in your query. Check for missing brackets, quotes, or keywords.',
@@ -1141,11 +1166,32 @@ function onFailure(report) {
     var friendlyMessage = 'Something went wrong with your query.';
     var friendlyHint = 'Try checking your query syntax or verifying the endpoint is available.';
 
+    // Phase 9 — RELIAB-02: status-code matching runs BEFORE body matching.
+    // Each entry may carry statusCodes:[..], pattern:RegExp, or both.
+    var statusNum = (typeof report.status === 'number') ? report.status : -1;
     for (var i = 0; i < SPARQL_ERROR_PATTERNS.length; i++) {
-        if (SPARQL_ERROR_PATTERNS[i].pattern.test(rawError)) {
-            friendlyMessage = SPARQL_ERROR_PATTERNS[i].message;
-            friendlyHint = SPARQL_ERROR_PATTERNS[i].hint;
+        var entry = SPARQL_ERROR_PATTERNS[i];
+        var statusOk = entry.statusCodes ? entry.statusCodes.indexOf(statusNum) !== -1 : true;
+        var bodyOk = entry.pattern ? entry.pattern.test(rawError) : true;
+        if (!entry.statusCodes && !entry.pattern) continue;
+        if (statusOk && bodyOk) {
+            friendlyMessage = entry.message;
+            friendlyHint = entry.hint;
             break;
+        }
+    }
+
+    // Phase 9 — RELIAB-02 + RELIAB-05: disambiguate xhr.status === 0.
+    // The flag _timeoutFired is set by sparql.js xhr.ontimeout (Plan 02).
+    if (statusNum === 0) {
+        if (report._timeoutFired) {
+            var timeoutMs = (window.SNORQL_CONFIG && window.SNORQL_CONFIG.queryTimeoutMs) || 60000;
+            var timeoutSec = Math.round(timeoutMs / 1000);
+            friendlyMessage = 'Network timeout — query exceeded ' + timeoutSec + 's.';
+            friendlyHint = 'The endpoint may be busy or the query is too complex. Try adding LIMIT or simplifying the query.';
+        } else {
+            friendlyMessage = 'Request did not complete.';
+            friendlyHint = 'Check the endpoint health indicator (top-right) for CORS or connectivity status.';
         }
     }
 
