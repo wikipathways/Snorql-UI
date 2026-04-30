@@ -73,5 +73,26 @@ window.SNORQL_CONFIG = {
         }
     },
     welcomeTitle: "SPARQL Query Explorer",
-    welcomeMessage: "<p>Browse and run SPARQL queries against the WikiPathways database.</p><ul><li><strong>Browse examples</strong> in the tree on the right to find a query</li><li><strong>Edit parameters</strong> to customize queries for your needs</li><li><strong>Write your own SPARQL</strong> directly in the editor below</li></ul>"
+    welcomeMessage: "<p>Browse and run SPARQL queries against the WikiPathways database.</p><ul><li><strong>Browse examples</strong> in the tree on the right to find a query</li><li><strong>Edit parameters</strong> to customize queries for your needs</li><li><strong>Write your own SPARQL</strong> directly in the editor below</li></ul>",
+
+    // ---- Phase 9: Query Reliability knobs ----
+    // queryTimeoutMs: XHR timeout in milliseconds. Hung requests fail in bounded
+    // time instead of polling indefinitely. Forks for federated/heavy queries
+    // may bump this to 120000 or higher. (RELIAB-05)
+    queryTimeoutMs: 60000,
+
+    // maxGetUrlBytes: Single threshold gating BOTH the GET→POST method switch
+    // and the permalink refusal. Computed against the prefixed, URL-encoded
+    // query length. 4000 is conservative (well below nginx 8KB default and
+    // Cloudflare 8KB limit). (RELIAB-03 + RELIAB-04)
+    maxGetUrlBytes: 4000,
+
+    // sendPrefixBlock: Controls PREFIX block delivery to the endpoint.
+    //   'auto'  — used-only token-scan; prepend only prefixes the query
+    //             references and that are NOT already declared inline (default).
+    //   true    — force-prepend ALL CONFIG.namespaces entries not already
+    //             declared inline (predictable, slightly heavier URL).
+    //   false   — skip prepending entirely (rely on server-registered prefixes;
+    //             best for Virtuoso-only forks). (RELIAB-01)
+    sendPrefixBlock: 'auto'
 };
