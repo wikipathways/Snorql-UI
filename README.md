@@ -212,7 +212,21 @@ Create the directory first: `mkdir virtuoso-data`
 | Logo | `assets/images/` | Replace logo files |
 | Footer | `index.html` | Edit footer section |
 | Namespaces | `assets/js/config.js` | `namespaces` object in `SNORQL_CONFIG` |
+| Navbar linkouts | `assets/js/config.js` | `linkouts` array in `SNORQL_CONFIG` (see below) |
 | Bitly token | `assets/js/script.js` | `accessToken` (line 180) |
+
+### Navbar Linkouts
+
+Add navbar buttons (tutorials, docs, credit links) through config — no source edits. Set the `linkouts` array in `assets/js/config.js`:
+
+```javascript
+linkouts: [
+  { label: "Tutorial", url: "https://example.org/tutorial", icon: "book" },
+  { label: "Credits",  url: "https://example.org/about", authors: "Jane Doe et al." }
+]
+```
+
+Each entry is `{ label, url, authors?, icon? }`. Labels render as escaped plain text and URLs are restricted to `http`/`https`/`mailto`, so the array is safe to populate from config or mounted files. Buttons open in a new tab in array order; an empty array (the default) renders nothing. For the full field reference, the trust-boundary rationale, and the Docker config-file override path, see **[FORK.md → Navbar Linkouts](FORK.md#navbar-linkouts)**. To add a new feature in this config-driven style, see **[CONTRIBUTING.md](CONTRIBUTING.md#config-driven-ui-extensions)**.
 
 ### Branding
 

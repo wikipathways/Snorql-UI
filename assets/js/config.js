@@ -10,6 +10,22 @@ window.SNORQL_CONFIG = {
         enableSVGRenderer: false,
         enableSMILESRenderer: false
     },
+    // Optional navbar linkout buttons, rendered in array order by linkouts.js.
+    // Keep the live default EMPTY so existing deployments render unchanged.
+    // Each entry: { label, url, authors?, icon? }
+    //   label   - button text (shown as plain text; HTML is escaped)
+    //   url     - http/https/mailto only; other schemes (javascript:/data:) are rejected
+    //   authors - optional; used as the accessible name (aria-label/title) when present
+    //   icon    - optional Bootstrap-3 glyphicon suffix, e.g. "book" -> glyphicon-book
+    //             (allowlisted to [a-z0-9-]; invalid suffixes are dropped)
+    // SECURITY: this array is untrusted input — do not remove the escaping or
+    // the URL scheme allowlist in assets/js/linkouts.js. See FORK.md.
+    // Example:
+    //   linkouts: [
+    //     { label: "Tutorial", url: "https://example.org/tutorial", icon: "book" },
+    //     { label: "Credits",  url: "https://example.org/about", authors: "Jane Doe et al." }
+    //   ],
+    linkouts: [],
     namespaces: {
         rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
         rdfs: "http://www.w3.org/2000/01/rdf-schema#",
