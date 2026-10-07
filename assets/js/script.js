@@ -214,7 +214,21 @@ jQuery(document).ready(function() {
             var queryParam = "?q=" + encodeURIComponent(query) + "&endpoint=" + encodedEndpoint;
             var url = permalinkBase + queryParam;
 
-            var accessToken = "b0021fe4839aefbc4e7967b3578443d9ea6e89bf";
+            var showFullLink = function(note) {
+                var $box = $('#permalink-url').empty();
+                if (note) {
+                    $box.append($('<span class="text-warning"></span>').text(note), '<br>');
+                }
+                $box.append($('<a target="_blank" style="word-break:break-all;"></a>').attr('href', url).text(url));
+                $('#permalinkModal').modal();
+            };
+
+            // No token configured: skip shortening and show the full permalink.
+            var accessToken = (window.SNORQL_CONFIG && window.SNORQL_CONFIG.bitlyToken) || "";
+            if (!accessToken) {
+                showFullLink();
+                return;
+            }
             var params = { "long_url" : url.trim() };
 
             $.ajax({
@@ -233,13 +247,7 @@ jQuery(document).ready(function() {
             }).fail(function() {
                 // Bitly rejects some long URLs. The unshortened ?q= URL is a working
                 // permalink too, so show that rather than no link at all.
-                $('#permalink-url').empty().append(
-                    $('<span class="text-warning"></span>').text(
-                        'Bitly could not shorten this link, so this is the full permalink:'),
-                    '<br>',
-                    $('<a target="_blank" style="word-break:break-all;"></a>').attr('href', url).text(url)
-                );
-                $('#permalinkModal').modal();
+                showFullLink('Bitly could not shorten this link, so this is the full permalink:');
             });
         });
     });
