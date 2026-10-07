@@ -1,6 +1,7 @@
 window.SNORQL_CONFIG = {
     endpoint: "https://sparql.wikipathways.org/sparql/",
     examplesRepo: "https://github.com/wikipathways/SPARQLQueries",
+    examplesBranch: "master",
     defaultGraph: "",
     title: "My SPARQL Explorer",
     poweredByLink: "https://github.com/wikipathways/snorql-extended",
