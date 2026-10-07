@@ -27,6 +27,21 @@ window.SNORQL_CONFIG = {
     //     { label: "Credits",  url: "https://example.org/about", authors: "Jane Doe et al." }
     //   ],
     linkouts: [],
+    // Optional branding (applied by assets/js/branding.js). Leave a key out to
+    // keep the markup in index.html. Text is set as plain text and URLs are
+    // allowlisted; there is no raw-HTML option. Colours go in assets/css/theme.css.
+    // Example:
+    //   logo: { src: "assets/images/my-logo.png", alt: "My SPARQL", height: 50 },
+    //   favicon: "assets/images/my-favicon.png",
+    //   endpointLabel: "SPARQL Endpoint",
+    //   metaDescription: "Explore my data with SPARQL",
+    //   metaAuthor: "My Team",
+    //   footer: [
+    //     { label: "My project", url: "https://example.org" }, " | ",
+    //     { label: "Source", url: "https://github.com/me/my-snorql" },
+    //     " | Data: ", { label: "CC-BY 4.0", url: "https://creativecommons.org/licenses/by/4.0/", title: "Data licence" },
+    //     " ", { image: "assets/images/partner.png", url: "https://example.org", alt: "Partner", height: 25 }
+    //   ],
     namespaces: {
         rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
         rdfs: "http://www.w3.org/2000/01/rdf-schema#",

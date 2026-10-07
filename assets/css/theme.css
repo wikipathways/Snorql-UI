@@ -1,0 +1,5 @@
+/*
+ * Instance theme. Empty in the engine; an instance overlay replaces this file to
+ * restyle the UI (colours, navbar, buttons) without touching style.css.
+ * It is loaded after style.css, so its rules win at equal specificity.
+ */
