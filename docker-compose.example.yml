@@ -73,6 +73,11 @@ services:
 
       # Default RDF graph (leave empty for default behavior)
       - DEFAULT_GRAPH=${DEFAULT_GRAPH:-}
+
+      # Query reliability settings (see .env.example)
+      - SNORQL_QUERY_TIMEOUT_MS=${SNORQL_QUERY_TIMEOUT_MS:-}
+      - SNORQL_MAX_GET_URL_BYTES=${SNORQL_MAX_GET_URL_BYTES:-}
+      - SNORQL_SEND_PREFIX_BLOCK=${SNORQL_SEND_PREFIX_BLOCK:-}
     ports:
       # Snorql web interface
       - "${SNORQL_PORT:-8088}:80"

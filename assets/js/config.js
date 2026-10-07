@@ -110,5 +110,11 @@ window.SNORQL_CONFIG = {
     //             declared inline (predictable, slightly heavier URL).
     //   false   — skip prepending entirely (rely on server-registered prefixes;
     //             best for Virtuoso-only forks). (RELIAB-01)
-    sendPrefixBlock: 'auto'
+    sendPrefixBlock: 'auto',
+
+    // bitlyToken: Bitly access token used by "Get Permalink" to shorten the ?q= URL.
+    // It is visible to anyone who loads the page, so use a token with no other rights.
+    // Empty string = no shortening; the full permalink is shown. Set at container start
+    // with SNORQL_BITLY_TOKEN (an empty value disables shortening).
+    bitlyToken: "b0021fe4839aefbc4e7967b3578443d9ea6e89bf"
 };
