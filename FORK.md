@@ -189,6 +189,10 @@ The `.env` file controls Docker deployment settings. Copy `.env.example` to `.en
 | `SNORQL_TITLE` | `My SPARQL Explorer` | Browser tab title. |
 | `SNORQL_PORT` | `8088` | Port for the Snorql-UI web interface. |
 | `DEFAULT_GRAPH` | (empty) | Default named graph for queries. |
+| `SNORQL_EXAMPLES_BRANCH` | `master` | Branch of the examples repository. |
+| `WELCOME_TITLE`, `WELCOME_MESSAGE` | (config.js) | Welcome panel heading and HTML message. |
+| `SNORQL_QUERY_TIMEOUT_MS`, `SNORQL_MAX_GET_URL_BYTES`, `SNORQL_SEND_PREFIX_BLOCK` | (config.js) | Reliability settings, see below. |
+| `SNORQL_BITLY_TOKEN` | (config.js) | Bitly token for short permalinks; set it empty to disable shortening. |
 | `VIRTUOSO_PASSWORD` | `dba123` | Virtuoso admin password. Change this for production. |
 | `VIRTUOSO_HTTP_PORT` | `8890` | Virtuoso HTTP and SPARQL endpoint port. |
 
@@ -196,13 +200,29 @@ See `.env.example` for the full list of variables including Virtuoso container s
 
 ## Customizing the UI
 
-### Logo
+Prefer an **overlay** to a code fork: build your image `FROM` the published engine image
+and copy in only your own files, so updating is a matter of bumping the engine tag.
 
-Replace the image files in `assets/images/` with your own. Keep the same filenames or update the `<img>` tag in `index.html` to point to your new file.
+```dockerfile
+FROM ghcr.io/wikipathways/snorql-ui:1.2
+COPY config.js /usr/local/apache2/htdocs/assets/js/config.js
+COPY theme.css /usr/local/apache2/htdocs/assets/css/theme.css
+COPY images/   /usr/local/apache2/htdocs/assets/images/
+```
 
-### Footer
+Environment variables (above) still apply on top of your `config.js`. Keep the keys that
+`script.sh` rewrites (`endpoint`, `title`, `welcomeMessage`, ...) on a single line each.
 
-Edit the `<footer>` section in `index.html` to change the footer text, links, or branding.
+### Logo, favicon, footer, endpoint label
+
+Set these in `config.js` (applied by `assets/js/branding.js`); see the commented example
+there. The footer is a list of plain-text strings, `{ label, url, title }` links and
+`{ image, url, alt, height }` images. Text is never parsed as HTML and URLs are limited to
+http(s)/mailto, so there is no way (and no need) to inject raw markup.
+
+### Colours and layout
+
+Put CSS in `assets/css/theme.css`. It is empty in the engine and loaded after `style.css`.
 
 ### Namespaces
 
