@@ -39,10 +39,10 @@ function call(sandbox, expr) {
 }
 
 describe('PREFIX prepend (RELIAB-01)', () => {
-    test('auto mode prepends used cur: prefix', () => {
+    test('auto mode prepends used dc: prefix', () => {
         const s = createSandbox();
-        const out = call(s, 'prepareQueryForSend(' + JSON.stringify('SELECT * WHERE { ?s cur:type ?o }') + ')');
-        expect(out).toMatch(/^PREFIX cur: </);
+        const out = call(s, 'prepareQueryForSend(' + JSON.stringify('SELECT * WHERE { ?s dc:title ?o }') + ')');
+        expect(out).toMatch(/^PREFIX dc: </);
     });
 
     test('auto mode does NOT prepend if user already declared inline', () => {

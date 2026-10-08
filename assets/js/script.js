@@ -38,6 +38,12 @@ jQuery(document).ready(function() {
             fetchExamples("-fs");
 		});
 
+		// Logo resets to a clean page, dropping the long ?q=... permalink URL.
+		jQuery("#index-page").on("click",function(event){
+            event.preventDefault();
+            window.location.href = window.location.pathname;
+		});
+
         //---------------- Populate query from URL (if available) -----------------------
 
         var query = findGetParameter("q");
@@ -116,17 +122,26 @@ jQuery(document).ready(function() {
             showWelcomePanel();
         });
 
-        jQuery("#export-csv").on("click",function(){
+        jQuery("#export-csv").on("click",function(e){
+            e.preventDefault();
             var query = editor.getDoc().getValue();
             exportResults(jQuery("#endpoint").val(), query, "csv");
         });
 
-        jQuery("#export-json").on("click",function(){
+        jQuery("#export-tsv").on("click",function(e){
+            e.preventDefault();
+            var query = editor.getDoc().getValue();
+            exportResults(jQuery("#endpoint").val(), query, "tsv");
+        });
+
+        jQuery("#export-json").on("click",function(e){
+            e.preventDefault();
             var query = editor.getDoc().getValue();
             exportResults(jQuery("#endpoint").val(), query, "json");
         });
 
-        jQuery("#export-xml").on("click",function(){
+        jQuery("#export-xml").on("click",function(e){
+            e.preventDefault();
             var query = editor.getDoc().getValue();
             exportResults(jQuery("#endpoint").val(), query, "xml");
         });

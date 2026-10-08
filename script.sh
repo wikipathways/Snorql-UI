@@ -43,6 +43,10 @@ else
   echo "SNORQL_EXAMPLES_REPO is not set"
 fi
 
+if [[ -n "${SNORQL_EXAMPLES_BRANCH}" ]]; then
+  set_string examplesBranch "${SNORQL_EXAMPLES_BRANCH}"
+fi
+
 if [[ -n "${DEFAULT_GRAPH}" ]]; then
   set_string defaultGraph "${DEFAULT_GRAPH}"
 else

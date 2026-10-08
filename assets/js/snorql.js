@@ -304,12 +304,30 @@ function sanitizeEnumValue(value, allowedOptions) {
     return null;
 }
 
+// Resolve the value to substitute for a param. Autocomplete fields show a
+// friendly "ID — Title" label but must substitute only the bare ID, so the
+// chosen ID is stashed in a data-selected-value attribute. Precedence:
+//   1. data-selected-value (set when the user picks from the dropdown)
+//   2. the leading token of the field text, split on the " — " separator
+//      (handles free-typed input; the em dash is safe for hyphenated IDs
+//      such as CAS numbers like "100-42-5")
+//   3. the raw field value
+//   4. the param default
+function readParamValue(param) {
+    var el = document.getElementById('param-' + param.name);
+    if (!el) return param.defaultValue;
+    var sel = el.getAttribute ? el.getAttribute('data-selected-value') : null;
+    if (sel !== null && sel !== '') return sel;
+    var raw = (el.value || '').trim();
+    if (raw === '') return param.defaultValue;
+    return raw.split(' — ')[0].trim() || raw;
+}
+
 function substituteParams(templateContent, params) {
     var view = {};
     for (var i = 0; i < params.length; i++) {
         var param = params[i];
-        var el = document.getElementById('param-' + param.name);
-        var value = (el && el.value !== '') ? el.value : param.defaultValue;
+        var value = readParamValue(param);
 
         if (param.type === 'string') {
             view[param.name] = sanitizeSparqlString(value);
@@ -319,6 +337,10 @@ function substituteParams(templateContent, params) {
         } else if (param.type === 'enum') {
             var enumVal = sanitizeEnumValue(value, param.options);
             view[param.name] = enumVal !== null ? enumVal : param.defaultValue;
+        } else if (param.type === 'autocomplete') {
+            // A picked value is a bare id, which escaping leaves unchanged. Free-typed text is
+            // escaped like a string param, so a quote cannot break the query.
+            view[param.name] = sanitizeSparqlString(value);
         } else {
             view[param.name] = value;
         }
@@ -446,8 +468,22 @@ function initAutocompleteField(inputId, typeName) {
     }, function(item) {
         return formatAutocompleteOption(item, typeConfig);
     });
-    // Pre-fetch data so it is cached when user first types
-    fetchAutocompleteData(typeName);
+    // Pre-fetch data so it is cached when user first types, and enrich the
+    // default value (a bare ID) into a friendly "ID — Title" label when found.
+    fetchAutocompleteData(typeName).done(function(list) {
+        var $inp = $('#' + inputId);
+        if (!$inp.length) return;
+        var cur = ($inp.val() || '').trim();
+        // Only enrich an untouched bare default (no selection, no separator).
+        if (!cur || $inp.attr('data-selected-value') != null || cur.indexOf(' — ') !== -1) return;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i][typeConfig.valueField] === cur) {
+                var lbl = typeConfig.labelField ? list[i][typeConfig.labelField] : '';
+                $inp.val(lbl ? cur + ' — ' + lbl : cur).attr('data-selected-value', cur);
+                break;
+            }
+        }
+    });
 }
 
 function initAutocomplete(inputId, fetchFn, formatFn) {
@@ -487,8 +523,11 @@ function initAutocomplete(inputId, fetchFn, formatFn) {
         }
     }
 
-    function selectItem(value) {
-        $input.val(value);
+    function selectItem(value, label) {
+        // Show a friendly "ID — Title" label but stash the bare ID so that
+        // readParamValue substitutes only the ID into the query.
+        $input.val(label ? value + ' — ' + label : value);
+        $input.attr('data-selected-value', value);
         $dropdown.hide();
         highlightIndex = -1;
         $input.trigger('change');
@@ -499,6 +538,8 @@ function initAutocomplete(inputId, fetchFn, formatFn) {
     });
 
     $input.on('input', function() {
+        // Typing invalidates any prior dropdown selection.
+        $input.removeAttr('data-selected-value');
         var val = $input.val().trim().toLowerCase();
         if (!val) {
             $dropdown.hide();
@@ -521,7 +562,8 @@ function initAutocomplete(inputId, fetchFn, formatFn) {
         } else if (e.keyCode === 13) { // Enter
             e.preventDefault();
             if (highlightIndex >= 0 && highlightIndex < $opts.length) {
-                selectItem($opts.eq(highlightIndex).attr('data-value'));
+                var $opt = $opts.eq(highlightIndex);
+                selectItem($opt.attr('data-value'), $opt.find('.autocomplete-option-title').text());
             }
         } else if (e.keyCode === 27) { // Escape
             $dropdown.hide();
@@ -530,7 +572,8 @@ function initAutocomplete(inputId, fetchFn, formatFn) {
     });
 
     $dropdown.on('click', '.autocomplete-option', function() {
-        selectItem($(this).attr('data-value'));
+        var $o = $(this);
+        selectItem($o.attr('data-value'), $o.find('.autocomplete-option-title').text());
     });
 
     // Use namespaced event to avoid accumulating handlers across rebuilds
@@ -649,7 +692,7 @@ function mainAjax(link, repo) {
                     node.originalFilename = segments[0];
                     node.href = repo.includes("http://localhost")
                         ? repo.replace("/api/repos/", "/raw/") + "/" + path
-                        : "https://raw.githubusercontent.com/" + repo + "/master/" + path;
+                        : "https://raw.githubusercontent.com/" + repo + "/" + examplesBranch() + "/" + path;
                     node.icon = 'glyphicon glyphicon-file';
                     tree.push(node);
 
@@ -669,7 +712,7 @@ function mainAjax(link, repo) {
                     node.originalFilename = segments[1];
                     node.href = repo.includes("http://localhost")
                         ? repo.replace("/api/repos/", "/raw/") + "/" + path
-                        : "https://raw.githubusercontent.com/" + repo + "/master/" + path;
+                        : "https://raw.githubusercontent.com/" + repo + "/" + examplesBranch() + "/" + path;
                     node.icon = 'glyphicon glyphicon-file';
                     tree[index].nodes.push(node);
 
@@ -700,7 +743,7 @@ function mainAjax(link, repo) {
                     node.originalFilename = segments[2];
                     node.href = repo.includes("http://localhost")
                         ? repo.replace("/api/repos/", "/raw/") + "/" + path
-                        : "https://raw.githubusercontent.com/" + repo + "/master/" + path;
+                        : "https://raw.githubusercontent.com/" + repo + "/" + examplesBranch() + "/" + path;
                     node.icon = 'glyphicon glyphicon-file';
                     tree[index].nodes[index2].nodes.push(node);
                 }
@@ -880,6 +923,12 @@ function initTreeview(tree, suffix) {
     });
 }
 
+// Branch of the examples repository to read .rq files from (CONFIG.examplesBranch).
+function examplesBranch() {
+    var b = window.SNORQL_CONFIG && window.SNORQL_CONFIG.examplesBranch;
+    return b ? String(b) : 'master';
+}
+
 function fetchExamples(suffix) {
     if (typeof suffix === 'undefined') suffix = '';
 
@@ -903,8 +952,8 @@ function fetchExamples(suffix) {
 
     var repoPath = repo.substring(19);
     var link = repo.includes("http://localhost")
-        ? repo + "/git/trees/master?recursive=1"
-        : "https://api.github.com/repos/" + repoPath + "/git/trees/master?recursive=1";
+        ? repo + "/git/trees/" + examplesBranch() + "?recursive=1"
+        : "https://api.github.com/repos/" + repoPath + "/git/trees/" + examplesBranch() + "?recursive=1";
 
     mainAjax(link, repo.includes("http://localhost") ? repo : repoPath).then(function(tree) {
         return enrichTreeWithMetadata(tree);
@@ -1002,8 +1051,7 @@ function start(){
                 var titleView = {};
                 for (var i = 0; i < _currentParams.length; i++) {
                     var p = _currentParams[i];
-                    var el = document.getElementById('param-' + p.name);
-                    titleView[p.name] = (el && el.value !== '') ? el.value : p.defaultValue;
+                    titleView[p.name] = readParamValue(p);
                 }
                 $('#desc-title').text(Mustache.render(_currentParsedTitle, titleView));
             }
@@ -1266,9 +1314,130 @@ function displayResult(json, resultTitle) {
         p.appendChild(document.createTextNode('[no results]'));
         div.appendChild(p);
     } else {
-        div.appendChild(jsonToHTML(json));
+        var table = jsonToHTML(json);
+        attachResultSorting(table);
+        div.appendChild(buildResultToolbar(table, json.results.bindings.length));
+        div.appendChild(table);
     }
     setResult(div);
+}
+
+// ─── Client-side filtering and sorting of the results table ───
+// Both act on the rendered table only. Downloads re-run the query and always contain every row.
+
+// Text of one row, cells joined by a tab so a filter word cannot match across a cell boundary.
+// Cached on the row: results can run to tens of thousands of rows and the filter runs per keystroke.
+function resultRowText(row) {
+    if (row._snorqlFilterText === undefined) {
+        var parts = [];
+        for (var i = 0; i < row.cells.length; i++) {
+            parts.push((row.cells[i].textContent || '').trim());
+        }
+        row._snorqlFilterText = parts.join('\t').toLowerCase();
+    }
+    return row._snorqlFilterText;
+}
+
+// Shows the rows that contain every whitespace-separated word of the term; returns how many are shown.
+function filterResultRows(table, term) {
+    var words = (term || '').toLowerCase().split(/\s+/).filter(function(w) { return w !== ''; });
+    var tbody = table.tBodies[0];
+    var visible = 0;
+    if (!tbody) return 0;
+    for (var i = 0; i < tbody.rows.length; i++) {
+        var row = tbody.rows[i];
+        var text = resultRowText(row);
+        var match = true;
+        for (var w = 0; w < words.length; w++) {
+            if (text.indexOf(words[w]) === -1) { match = false; break; }
+        }
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+    }
+    return visible;
+}
+
+// Numbers sort numerically; everything else sorts naturally, so aop:3 comes before aop:12.
+function compareCellValues(a, b) {
+    var na = Number(a), nb = Number(b);
+    if (a !== '' && b !== '' && isFinite(na) && isFinite(nb)) return na - nb;
+    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+}
+
+function sortResultTable(table, colIndex, descending) {
+    var tbody = table.tBodies[0];
+    if (!tbody) return;
+    var rows = Array.prototype.slice.call(tbody.rows);
+    rows.sort(function(r1, r2) {
+        var c1 = r1.cells[colIndex] ? (r1.cells[colIndex].textContent || '').trim() : '';
+        var c2 = r2.cells[colIndex] ? (r2.cells[colIndex].textContent || '').trim() : '';
+        var c = compareCellValues(c1, c2);
+        return descending ? -c : c;
+    });
+    for (var i = 0; i < rows.length; i++) {
+        tbody.appendChild(rows[i]);
+    }
+}
+
+// Click (or Enter/Space) on a header sorts ascending, then toggles; aria-sort marks the active column.
+function attachResultSorting(table) {
+    if (!table.tHead || !table.tHead.rows.length) return;
+    var headers = table.tHead.rows[0].cells;
+    function sortBy(th, col) {
+        var descending = th.getAttribute('aria-sort') === 'ascending';
+        for (var j = 0; j < headers.length; j++) {
+            headers[j].removeAttribute('aria-sort');
+        }
+        th.setAttribute('aria-sort', descending ? 'descending' : 'ascending');
+        sortResultTable(table, col, descending);
+    }
+    for (var i = 0; i < headers.length; i++) {
+        (function(th, col) {
+            th.className = (th.className ? th.className + ' ' : '') + 'sortable';
+            th.tabIndex = 0;
+            th.title = 'Sort by ' + (th.textContent || '');
+            th.addEventListener('click', function() { sortBy(th, col); });
+            th.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    sortBy(th, col);
+                }
+            });
+        })(headers[i], i);
+    }
+}
+
+function buildResultToolbar(table, total) {
+    var bar = document.createElement('div');
+    bar.className = 'results-toolbar form-inline';
+
+    var input = document.createElement('input');
+    input.type = 'search';
+    input.className = 'form-control input-sm results-filter';
+    input.placeholder = 'Filter results...';
+    input.setAttribute('aria-label', 'Filter results');
+    input.title = 'Shows rows containing every word you type. Filters this table only; downloads include all results.';
+
+    var count = document.createElement('small');
+    count.className = 'text-muted results-count';
+    count.setAttribute('aria-live', 'polite');
+
+    function update() {
+        var visible = filterResultRows(table, input.value);
+        count.textContent = input.value.trim() ? 'Showing ' + visible + ' of ' + total + ' rows' : '';
+    }
+
+    var timer = null;
+    input.addEventListener('input', function() {
+        clearTimeout(timer);
+        timer = setTimeout(update, 150);
+    });
+
+    bar.appendChild(input);
+    bar.appendChild(document.createTextNode(' '));
+    bar.appendChild(count);
+    bar._update = update;
+    return bar;
 }
 
 function jsonToHTML(json) {
@@ -1452,6 +1621,9 @@ function exportResults(url, sparql, type, output) {
     if(type === "csv"){
         service.setRequestHeader('Accept', 'application/sparql-results+json,*/*');
         service.setOutput('json');
+    }else if(type === "tsv"){
+        service.setRequestHeader('Accept', 'text/tab-separated-values,*/*');
+        service.setOutput('tsv');
     }else{
         service.setRequestHeader('Accept', 'application/sparql-results+'+type+',*/*');
         service.setOutput(type);
@@ -1474,10 +1646,17 @@ function renderOutput(results, type){
         download_link.setAttribute('download', "snorql-json-"+(new Date().getTime() / 1000)+".json");
         download_link.click();
 
+    }else if(type === 'tsv'){
+
+        var download_link = document.createElement('a');
+        download_link.setAttribute('href', 'data:text/tab-separated-values;charset=utf8,' + encodeURIComponent(results));
+        download_link.setAttribute('download', "snorql-tsv-"+(new Date().getTime() / 1000)+".tsv");
+        download_link.click();
+
     }else if(type === 'xml'){
 
         var download_link = document.createElement('a');
-        download_link.setAttribute('href', 'data:text/csv;charset=utf8,' + encodeURIComponent(results));
+        download_link.setAttribute('href', 'data:text/xml;charset=utf8,' + encodeURIComponent(results));
         download_link.setAttribute('download', "snorql-xml-"+(new Date().getTime() / 1000)+".xml");
         download_link.click();
     }
