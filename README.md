@@ -33,6 +33,28 @@ Snorql-UI loads example queries from any public GitHub repository containing `.r
 
 See [EXAMPLES.md](EXAMPLES.md) for how to structure your examples repository.
 
+### Link to an example query
+
+Add `?example=` with the path of the `.rq` file in the examples repository to open that query,
+with its title, description and parameter fields, exactly as when it is picked in the tree:
+
+```
+https://sparql.wikipathways.org/?example=D. General/GenesofPathway.rq
+https://sparql.wikipathways.org/?example=D. General/GenesofPathway.rq&pathwayId=WP254
+https://sparql.wikipathways.org/?example=A. Metadata/datacounts/countPathways.rq&ref=3f62091
+```
+
+- Other parameters set the query's `# param:` fields by name (`pathwayId=WP254`). Unknown names
+  are ignored, and enum values must be one of the options.
+- `ref` reads the file from a branch, tag or commit instead of the configured `examplesBranch`.
+  Without it the link shows the current version of the query; with a commit it keeps showing that version.
+  Only versions that the configured branch contains are accepted (checked with GitHub's compare API),
+  because GitHub also serves commits from forks and pull requests under the repository's path.
+- `endpoint` works as usual.
+
+Picking an example in the tree, or changing one of its parameters, puts this short link in the
+address bar. Once the query itself is edited, the address bar falls back to the full `?q=` link.
+
 
 ## Get a URL for a query with JavaScript
 
@@ -158,6 +180,9 @@ http://localhost:8088/?endpoint=http://other-endpoint/sparql
 ```
 
 This is useful for linking to the UI with a specific endpoint pre-configured.
+
+`?q=<URL-encoded query>` opens a query in the editor, and `?example=<path>` opens an example query
+(see [Link to an example query](#link-to-an-example-query)). When both are given, `example` wins.
 
 
 ## Docker Compose
