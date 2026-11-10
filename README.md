@@ -48,6 +48,8 @@ https://sparql.wikipathways.org/?example=A. Metadata/datacounts/countPathways.rq
   are ignored, and enum values must be one of the options.
 - `ref` reads the file from a branch, tag or commit instead of the configured `examplesBranch`.
   Without it the link shows the current version of the query; with a commit it keeps showing that version.
+  Only versions that the configured branch contains are accepted (checked with GitHub's compare API),
+  because GitHub also serves commits from forks and pull requests under the repository's path.
 - `endpoint` works as usual.
 
 Picking an example in the tree, or changing one of its parameters, puts this short link in the

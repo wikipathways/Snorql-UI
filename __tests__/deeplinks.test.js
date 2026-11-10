@@ -197,3 +197,24 @@ describe('buildExampleUrl', () => {
     expect(r.values).toEqual({ lipidClass: 'GP', species: 'A & B=c' });
   });
 });
+
+describe('published refs only', () => {
+  test('sanitizeRef rejects refs/... (pull requests and the like)', () => {
+    expect(DL.sanitizeRef('refs/pull/24/head')).toBeNull();
+    expect(DL.sanitizeRef('refs/heads/master')).toBeNull();
+  });
+
+  test('compareUrl asks GitHub whether the branch contains the ref', () => {
+    expect(DL.compareUrl('wikipathways/SPARQLQueries', 'd4ceb96', 'master'))
+      .toBe('https://api.github.com/repos/wikipathways/SPARQLQueries/compare/d4ceb96...master');
+  });
+
+  test('refIsPublished: ahead or identical only', () => {
+    expect(DL.refIsPublished({ status: 'ahead' })).toBe(true);
+    expect(DL.refIsPublished({ status: 'identical' })).toBe(true);
+    expect(DL.refIsPublished({ status: 'diverged' })).toBe(false); // fork or pull-request commit
+    expect(DL.refIsPublished({ status: 'behind' })).toBe(false);
+    expect(DL.refIsPublished(null)).toBe(false);
+    expect(DL.refIsPublished({})).toBe(false);
+  });
+});

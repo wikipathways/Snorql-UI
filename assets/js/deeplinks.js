@@ -11,6 +11,11 @@
  * Without ref the configured examples branch is used, so the link always shows
  * the current version of the query; with ref it shows that version.
  *
+ * A ref is only used after GitHub confirms that the configured branch contains
+ * it (compare API: status "ahead" or "identical"). raw.githubusercontent.com also
+ * serves commits from forks and pull requests under the repository's own path,
+ * so without this check a link could load a file that was never published.
+ *
  * Everything here is pure (no DOM, no network) so it can be unit tested;
  * snorql.js does the loading.
  */
@@ -63,6 +68,7 @@
         ref = ref.trim();
         if (!/^[A-Za-z0-9._/-]{1,100}$/.test(ref)) return null;
         if (ref.indexOf('..') !== -1 || /^[/.-]/.test(ref) || /\/$/.test(ref)) return null;
+        if (/^refs\//.test(ref)) return null;
         return ref;
     }
 
@@ -86,6 +92,17 @@
             return repoPath.replace('/api/repos/', '/raw/') + '/' + encodePath(path);
         }
         return 'https://raw.githubusercontent.com/' + repoPath + '/' + encodePath(ref) + '/' + encodePath(path);
+    }
+
+    // GitHub API URL that compares ref with the configured branch.
+    function compareUrl(repoPath, ref, branch) {
+        return 'https://api.github.com/repos/' + repoPath + '/compare/' + encodePath(ref) + '...' + encodePath(branch);
+    }
+
+    // True when the compare result says the branch contains ref, so the version
+    // the link asks for was published in the examples repository.
+    function refIsPublished(compare) {
+        return !!compare && (compare.status === 'ahead' || compare.status === 'identical');
     }
 
     // Path inside the repository for a raw GitHub URL of the examples tree
@@ -150,6 +167,8 @@
         sanitizeRef: sanitizeRef,
         repoPathFromUrl: repoPathFromUrl,
         rawUrl: rawUrl,
+        compareUrl: compareUrl,
+        refIsPublished: refIsPublished,
         pathFromRawHref: pathFromRawHref,
         acceptedValues: acceptedValues,
         buildExampleUrl: buildExampleUrl

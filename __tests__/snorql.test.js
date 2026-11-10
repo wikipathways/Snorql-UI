@@ -436,3 +436,49 @@ describe('escapeHtml: XSS prevention helper', () => {
     expect(result).toContain('&lt;script&gt;');
   });
 });
+
+// ─── Deep links: .rq content from a link must not reach the page as HTML ───
+
+describe('buildParamPanel: every field from the .rq file is escaped', () => {
+  function captureFor(paramList) {
+    let capturedHtml = null;
+    sandbox.$ = jest.fn((selector) => {
+      if (selector === '#desc-params') {
+        return { html: jest.fn((h) => { capturedHtml = h; }) };
+      }
+      return { html: jest.fn(), on: jest.fn(), find: jest.fn(() => ({ on: jest.fn(), each: jest.fn() })) };
+    });
+    vm.runInContext('buildParamPanel(' + JSON.stringify(paramList) + ', "")', sandbox);
+    return capturedHtml;
+  }
+
+  test('label, default value and placeholder of a text field', () => {
+    const html = captureFor([{
+      name: 'x', type: 'string', autocompleteType: null,
+      defaultValue: '"><script>alert(1)</script>',
+      label: '<img src=x onerror=alert(document.domain)>', options: null
+    }]);
+    expect(html).not.toMatch(/<img|<script/i);
+    expect(html).toContain('&lt;img src=x onerror=alert(document.domain)&gt;');
+    expect(html).toContain('value="&quot;&gt;&lt;script&gt;');
+  });
+
+  test('enum option values', () => {
+    const html = captureFor([{
+      name: 'e', type: 'enum', autocompleteType: null, defaultValue: 'a', label: 'E',
+      options: [{ value: 'a" onmouseover="alert(1)', label: 'A' }]
+    }]);
+    expect(html).not.toContain('" onmouseover="');
+    expect(html).toContain('value="a&quot; onmouseover=&quot;alert(1)"');
+  });
+});
+
+describe('parseRqHeaders: parameter names are restricted', () => {
+  test('drops a parameter whose name is not a plain identifier', () => {
+    const parsed = vm.runInContext(
+      'parseRqHeaders(' + JSON.stringify(
+        '# title: T\n# param: ok_1 | string | a | A\n# param: x"><img src=x> | string | b | B\n# param: a b | string | c | C\nSELECT 1'
+      ) + ')', sandbox);
+    expect(parsed.params.map(p => p.name)).toEqual(['ok_1']);
+  });
+});

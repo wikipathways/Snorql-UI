@@ -231,7 +231,8 @@ function parseRqHeaders(content) {
         var paramMatch = line.match(/^#\s*param:\s*(.+)/i);
         if (paramMatch) {
             var parts = paramMatch[1].split('|');
-            if (parts.length >= 4) {
+            // Names end up in element ids and selectors: letters, digits and _ only.
+            if (parts.length >= 4 && /^[A-Za-z_][A-Za-z0-9_]*$/.test(parts[0].trim())) {
                 var paramName = parts[0].trim();
                 var paramType = parts[1].trim();
                 var paramDefault = parts[2].trim();
@@ -297,6 +298,17 @@ function escapeHtml(str) {
     var div = document.createElement('div');
     div.appendChild(document.createTextNode(str));
     return div.innerHTML;
+}
+
+// Escape text for use inside a double- or single-quoted HTML attribute (and as
+// element text). Unlike escapeHtml it also escapes quotes.
+function escapeAttr(str) {
+    return String(str === null || str === undefined ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function sanitizeEnumValue(value, allowedOptions) {
@@ -608,25 +620,25 @@ function buildParamPanel(params, templateContent) {
         var p = params[i];
         var acType = resolveAutocompleteType(p);
         html += '<div class="param-item">';
-        html += '<label for="param-' + p.name + '">' + p.label + '</label> ';
+        html += '<label for="param-' + escapeAttr(p.name) + '">' + escapeAttr(p.label) + '</label> ';
 
         if (p.type === 'enum' && p.options) {
-            html += '<select class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '">';
+            html += '<select class="form-control param-input" id="param-' + escapeAttr(p.name) + '" data-param="' + escapeAttr(p.name) + '">';
             for (var j = 0; j < p.options.length; j++) {
                 var opt = p.options[j];
                 var selected = (opt.value === p.defaultValue) ? ' selected' : '';
-                html += '<option value="' + opt.value + '"' + selected + '>' + escapeHtml(opt.label) + '</option>';
+                html += '<option value="' + escapeAttr(opt.value) + '"' + selected + '>' + escapeAttr(opt.label) + '</option>';
             }
             html += '</select>';
         } else if (acType) {
             var typeConfig = CONFIG.autocompleteTypes ? CONFIG.autocompleteTypes[acType] : null;
             var placeholder = typeConfig ? typeConfig.placeholder : p.label;
             html += '<div class="autocomplete-wrapper">';
-            html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + escapeHtml(p.defaultValue) + '" placeholder="' + escapeHtml(placeholder) + '" autocomplete="off">';
+            html += '<input type="text" class="form-control param-input" id="param-' + escapeAttr(p.name) + '" data-param="' + escapeAttr(p.name) + '" value="' + escapeAttr(p.defaultValue) + '" placeholder="' + escapeAttr(placeholder) + '" autocomplete="off">';
             html += '<div class="autocomplete-dropdown"></div>';
             html += '</div>';
         } else {
-            html += '<input type="text" class="form-control param-input" id="param-' + p.name + '" data-param="' + p.name + '" value="' + p.defaultValue + '" placeholder="' + p.label + '">';
+            html += '<input type="text" class="form-control param-input" id="param-' + escapeAttr(p.name) + '" data-param="' + escapeAttr(p.name) + '" value="' + escapeAttr(p.defaultValue) + '" placeholder="' + escapeAttr(p.label) + '">';
         }
 
         html += '</div>';
@@ -934,20 +946,44 @@ function loadExampleFromUrl() {
         showExampleLinkError(link.example);
         return;
     }
+    var name = path + (ref ? ' (' + ref + ')' : '');
+    var load = function() {
+        jQuery.ajax({
+            url: DeepLinks.rawUrl(repoPath, ref || examplesBranch(), path),
+            dataType: 'text'
+        }).done(function(content) {
+            applyExampleContent(content, { path: path, ref: ref }, link.values);
+        }).fail(function() {
+            showExampleLinkError(name);
+        });
+    };
+    if (!ref || ref === examplesBranch() || repoPath.indexOf('http://localhost') === 0) {
+        load();
+        return;
+    }
+    // GitHub also serves fork and pull-request commits under this repository's
+    // path, so only load a ref that the configured branch contains.
     jQuery.ajax({
-        url: DeepLinks.rawUrl(repoPath, ref || examplesBranch(), path),
-        dataType: 'text'
-    }).done(function(content) {
-        applyExampleContent(content, { path: path, ref: ref }, link.values);
-    }).fail(function() {
-        showExampleLinkError(path + (ref ? ' (' + ref + ')' : ''));
+        url: DeepLinks.compareUrl(repoPath, ref, examplesBranch()),
+        dataType: 'json'
+    }).done(function(compare) {
+        if (DeepLinks.refIsPublished(compare)) {
+            load();
+        } else {
+            showExampleLinkError(name, 'That version is not part of the ' + examplesBranch() + ' branch of the examples repository.');
+        }
+    }).fail(function(xhr) {
+        showExampleLinkError(name, xhr && xhr.status === 403
+            ? 'GitHub rate limit reached while checking that version; try again later.'
+            : 'That version could not be found in the examples repository.');
     });
 }
 
-function showExampleLinkError(name) {
+function showExampleLinkError(name, reason) {
     _panelState = 'welcome';
     $('#desc-title').text('Example not found');
-    $('#desc-text').text('The link asks for the example "' + name + '", which could not be loaded from the examples repository.');
+    $('#desc-text').text('The link asks for the example "' + name + '", which could not be loaded from the examples repository.'
+        + (reason ? ' ' + reason : ''));
     $('#desc-params').hide();
     $('#desc-param-divider').hide();
 }
