@@ -294,10 +294,11 @@ function sanitizeSparqlUri(value) {
     return value;
 }
 
+// Escape text for HTML. Also escapes quotes, so the result is safe inside
+// attribute values too (serialising a text node through innerHTML is not:
+// it leaves " as is, which let endpoint data break out of data-value="...").
 function escapeHtml(str) {
-    var div = document.createElement('div');
-    div.appendChild(document.createTextNode(str));
-    return div.innerHTML;
+    return escapeAttr(str);
 }
 
 // Escape text for use inside a double- or single-quoted HTML attribute (and as

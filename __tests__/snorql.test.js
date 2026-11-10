@@ -482,3 +482,18 @@ describe('parseRqHeaders: parameter names are restricted', () => {
     expect(parsed.params.map(p => p.name)).toEqual(['ok_1']);
   });
 });
+
+describe('formatAutocompleteOption: endpoint data cannot break out of attributes', () => {
+  test('a quote in the value stays inside data-value', () => {
+    const html = vm.runInContext(
+      'formatAutocompleteOption(' + JSON.stringify({ id: 'WP1" style="position:fixed;inset:0" onmouseover="alert(document.domain)', title: 'T"x' }) +
+      ', { valueField: "id", labelField: "title" })', sandbox);
+    expect(html).not.toContain('" onmouseover="');
+    expect(html).not.toContain('" style="');
+    expect(html).toContain('data-value="WP1&quot; style=&quot;position:fixed;inset:0&quot; onmouseover=&quot;alert(document.domain)"');
+  });
+
+  test('escapeHtml escapes quotes without relying on the DOM', () => {
+    expect(vm.runInContext('escapeHtml(\'a"b\\\'c<d>&\')', sandbox)).toBe('a&quot;b&#39;c&lt;d&gt;&amp;');
+  });
+});
