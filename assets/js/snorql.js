@@ -6,6 +6,9 @@ var _currentTemplate = null;
 var _currentParams = null;
 var _currentParsedTitle = null; // Raw Mustache title template from #title header
 var _panelState = 'welcome'; // 'welcome' | 'active' | 'stale'
+var _currentExample = null; // { path, ref } of the loaded example, for ?example= links (deeplinks.js)
+// deeplinks.js may be missing in a fork with an older index.html; then there are no ?example= links.
+function hasDeepLinks() { return typeof DeepLinks !== 'undefined'; }
 
 function showWelcomePanel() {
     _panelState = 'welcome';
@@ -694,6 +697,7 @@ function mainAjax(link, repo) {
                         ? repo.replace("/api/repos/", "/raw/") + "/" + path
                         : "https://raw.githubusercontent.com/" + repo + "/" + examplesBranch() + "/" + path;
                     node.icon = 'glyphicon glyphicon-file';
+                    node.path = path;
                     tree.push(node);
 
                 } else if (segments.length == 2) {
@@ -714,6 +718,7 @@ function mainAjax(link, repo) {
                         ? repo.replace("/api/repos/", "/raw/") + "/" + path
                         : "https://raw.githubusercontent.com/" + repo + "/" + examplesBranch() + "/" + path;
                     node.icon = 'glyphicon glyphicon-file';
+                    node.path = path;
                     tree[index].nodes.push(node);
 
                 } else if (segments.length == 3) {
@@ -745,6 +750,7 @@ function mainAjax(link, repo) {
                         ? repo.replace("/api/repos/", "/raw/") + "/" + path
                         : "https://raw.githubusercontent.com/" + repo + "/" + examplesBranch() + "/" + path;
                     node.icon = 'glyphicon glyphicon-file';
+                    node.path = path;
                     tree[index].nodes[index2].nodes.push(node);
                 }
             }
@@ -841,6 +847,111 @@ function searchExamples(pattern, suffix) {
     initTreeview(filtered, suffix);
 }
 
+// Show an example query: description panel, parameter panel and editor.
+// example is { path, ref } when the query came from the examples repository
+// (the address bar then gets a short ?example= link), or null.
+// linkValues are parameter values from a deep link ({ name: value }), or null.
+function applyExampleContent(content, example, linkValues) {
+    var parsed = parseRqHeaders(content);
+    _currentExample = example;
+
+    // Set template state BEFORE showQueryPanel so title can render with defaults
+    if (parsed.params.length > 0) {
+        _currentTemplate = content;
+        _currentParams = parsed.params;
+        _currentParsedTitle = parsed.title; // Cache raw title for re-rendering
+    } else {
+        _currentTemplate = null;
+        _currentParams = null;
+        _currentParsedTitle = null;
+    }
+
+    showQueryPanel(parsed);
+
+    var body;
+    if (parsed.params.length > 0) {
+        _paramMode = true;
+        buildParamPanel(parsed.params, content);
+        // Show param section
+        $('#desc-param-divider').show();
+        $('#desc-params').show();
+        var values = hasDeepLinks() ? DeepLinks.acceptedValues(parsed.params, linkValues) : {};
+        var names = Object.keys(values);
+        if (names.length > 0) {
+            // Values go into the input fields with .val(), never into HTML. The change
+            // event runs the usual handler, which updates title, query and address bar.
+            for (var i = 0; i < names.length; i++) {
+                var $input = $('#param-' + names[i]);
+                $input.removeAttr('data-selected-value');
+                $input.val(values[names[i]]);
+            }
+            $('#param-' + names[0]).trigger('change');
+            return;
+        }
+        body = stripHeaders(substituteParams(content, parsed.params));
+    } else {
+        _paramMode = false;
+        // Hide param section
+        $('#desc-param-divider').hide();
+        $('#desc-params').hide();
+        body = stripHeaders(content);
+        _paramIgnoreChange = true;
+        editor.getDoc().setValue(body);
+        _paramIgnoreChange = false;
+    }
+    window.history.replaceState(null, "", shareUrl(body));
+}
+
+// Address-bar link for the query in the editor: a short ?example= link while an
+// example from the repository is shown unedited, otherwise ?q= with the full text.
+function shareUrl(query) {
+    var base = window.location.href.split('?')[0];
+    var endpoint = jQuery("#endpoint").val().trim();
+    if (hasDeepLinks() && _currentExample && _currentExample.path && _panelState === 'active') {
+        var params = (_currentParams || []).map(function(p) {
+            return { name: p.name, value: readParamValue(p), defaultValue: p.defaultValue };
+        });
+        return DeepLinks.buildExampleUrl(base, {
+            path: _currentExample.path,
+            ref: _currentExample.ref,
+            params: params,
+            endpoint: endpoint,
+            defaultEndpoint: CONFIG.endpoint
+        });
+    }
+    return base + "?q=" + encodeURIComponent(query) + "&endpoint=" + encodeURIComponent(endpoint);
+}
+
+// Open the example named in the address bar (?example=...), if any.
+function loadExampleFromUrl() {
+    if (!hasDeepLinks()) return;
+    var link = DeepLinks.readParams(window.location.search);
+    if (link.example === null) return;
+    var path = DeepLinks.sanitizeExamplePath(link.example);
+    var ref = link.ref === null ? null : DeepLinks.sanitizeRef(link.ref);
+    var repoPath = DeepLinks.repoPathFromUrl(jQuery('#examples-repo').val());
+    if (!path || (link.ref !== null && !ref) || !repoPath) {
+        showExampleLinkError(link.example);
+        return;
+    }
+    jQuery.ajax({
+        url: DeepLinks.rawUrl(repoPath, ref || examplesBranch(), path),
+        dataType: 'text'
+    }).done(function(content) {
+        applyExampleContent(content, { path: path, ref: ref }, link.values);
+    }).fail(function() {
+        showExampleLinkError(path + (ref ? ' (' + ref + ')' : ''));
+    });
+}
+
+function showExampleLinkError(name) {
+    _panelState = 'welcome';
+    $('#desc-title').text('Example not found');
+    $('#desc-text').text('The link asks for the example "' + name + '", which could not be loaded from the examples repository.');
+    $('#desc-params').hide();
+    $('#desc-param-divider').hide();
+}
+
 function initTreeview(tree, suffix) {
     $('#examples' + suffix).treeview({
         data: tree,
@@ -849,47 +960,9 @@ function initTreeview(tree, suffix) {
         collapseIcon: 'glyphicon glyphicon-folder-open',
         onNodeSelected: function(event, node) {
             if (node.href && (node.href.indexOf("raw.githubusercontent.com") !== -1 || node.href.indexOf("/raw/") !== -1)) {
-                var updateUrl = function(content) {
-                    var queryEncoded = "?q=" + encodeURIComponent(content) + "&endpoint=" + encodeURIComponent(jQuery("#endpoint").val().trim());
-                    var url = window.location.href.split('?')[0] + queryEncoded;
-                    window.history.replaceState(null, "", url);
-                };
+                var example = { path: node.path || (hasDeepLinks() ? DeepLinks.pathFromRawHref(node.href) : null), ref: null };
                 var handleContent = function(content) {
-                    var parsed = parseRqHeaders(content);
-
-                    // Set template state BEFORE showQueryPanel so title can render with defaults
-                    if (parsed.params.length > 0) {
-                        _currentTemplate = content;
-                        _currentParams = parsed.params;
-                        _currentParsedTitle = parsed.title; // Cache raw title for re-rendering
-                    } else {
-                        _currentTemplate = null;
-                        _currentParams = null;
-                        _currentParsedTitle = null;
-                    }
-
-                    showQueryPanel(parsed);
-
-                    if (parsed.params.length > 0) {
-                        _paramMode = true;
-                        buildParamPanel(parsed.params, content);
-                        // Show param section
-                        $('#desc-param-divider').show();
-                        $('#desc-params').show();
-                        var substituted = substituteParams(content, parsed.params);
-                        var body = stripHeaders(substituted);
-                        updateUrl(body);
-                    } else {
-                        _paramMode = false;
-                        // Hide param section
-                        $('#desc-param-divider').hide();
-                        $('#desc-params').hide();
-                        var body = stripHeaders(content);
-                        _paramIgnoreChange = true;
-                        editor.getDoc().setValue(body);
-                        _paramIgnoreChange = false;
-                        updateUrl(body);
-                    }
+                    applyExampleContent(content, example.path ? example : null, null);
                 };
                 if (node.queryContent) {
                     handleContent(node.queryContent);
@@ -1062,10 +1135,8 @@ function start(){
             _paramIgnoreChange = true;
             editor.getDoc().setValue(body);
             _paramIgnoreChange = false;
-            // Update URL with substituted query
-            var queryEncoded = "?q=" + encodeURIComponent(body) + "&endpoint=" + encodeURIComponent(jQuery("#endpoint").val().trim());
-            var url = window.location.href.split('?')[0] + queryEncoded;
-            window.history.replaceState(null, "", url);
+            // Update URL: ?example= link with the changed values, or ?q= with the query
+            window.history.replaceState(null, "", shareUrl(body));
         }
     });
 
@@ -1087,6 +1158,10 @@ function start(){
 
     // Show welcome panel on page load (per D-09)
     showWelcomePanel();
+
+    // ?example=... opens that example (takes precedence over ?q=). Last, so the
+    // handlers above are in place and an error message is not replaced by the welcome panel.
+    loadExampleFromUrl();
 }
 
 function showQuerySpinner() {

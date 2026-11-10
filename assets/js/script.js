@@ -24,10 +24,8 @@ jQuery(document).ready(function() {
 
             var query = editor.getDoc().getValue();
 
-            var queryEncoded = "?q="+encodeURIComponent(query)+"&endpoint="+encodeURIComponent(jQuery("#endpoint").val().trim());
-            var url = window.location.href.split('?')[0] + queryEncoded;
-
-            window.history.replaceState(null, "", url);
+            // Short ?example= link while an unedited example is shown, ?q= otherwise
+            window.history.replaceState(null, "", shareUrl(query));
 
             doQuery(jQuery("#endpoint").val(), query, function(json) { displayResult(json, "SPARQL results"); });
 
