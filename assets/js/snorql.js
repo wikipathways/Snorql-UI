@@ -947,9 +947,9 @@ function loadExampleFromUrl() {
         return;
     }
     var name = path + (ref ? ' (' + ref + ')' : '');
-    var load = function() {
+    var load = function(fetchRef) {
         jQuery.ajax({
-            url: DeepLinks.rawUrl(repoPath, ref || examplesBranch(), path),
+            url: DeepLinks.rawUrl(repoPath, fetchRef, path),
             dataType: 'text'
         }).done(function(content) {
             applyExampleContent(content, { path: path, ref: ref }, link.values);
@@ -957,8 +957,8 @@ function loadExampleFromUrl() {
             showExampleLinkError(name);
         });
     };
-    if (!ref || ref === examplesBranch() || repoPath.indexOf('http://localhost') === 0) {
-        load();
+    if (!ref || ref === examplesBranch() || DeepLinks.isLocalRepo(repoPath)) {
+        load(ref || examplesBranch());
         return;
     }
     // GitHub also serves fork and pull-request commits under this repository's
@@ -967,8 +967,9 @@ function loadExampleFromUrl() {
         url: DeepLinks.compareUrl(repoPath, ref, examplesBranch()),
         dataType: 'json'
     }).done(function(compare) {
-        if (DeepLinks.refIsPublished(compare)) {
-            load();
+        var commit = DeepLinks.publishedCommit(compare);
+        if (commit) {
+            load(commit);
         } else {
             showExampleLinkError(name, 'That version is not part of the ' + examplesBranch() + ' branch of the examples repository.');
         }

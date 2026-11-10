@@ -218,3 +218,24 @@ describe('published refs only', () => {
     expect(DL.refIsPublished({})).toBe(false);
   });
 });
+
+describe('publishedCommit and isLocalRepo', () => {
+  const full = '3f62091a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e';
+
+  test('returns the full hash GitHub resolved, only for published refs', () => {
+    expect(DL.publishedCommit({ status: 'ahead', base_commit: { sha: full } })).toBe(full);
+    expect(DL.publishedCommit({ status: 'identical', base_commit: { sha: full } })).toBe(full);
+    expect(DL.publishedCommit({ status: 'diverged', base_commit: { sha: full } })).toBeNull();
+    expect(DL.publishedCommit({ status: 'ahead' })).toBeNull();
+    expect(DL.publishedCommit({ status: 'ahead', base_commit: { sha: '3f62091' } })).toBeNull();
+    expect(DL.publishedCommit({ status: 'ahead', base_commit: { sha: full + '/../x' } })).toBeNull();
+  });
+
+  test('isLocalRepo only matches localhost itself', () => {
+    expect(DL.isLocalRepo('http://localhost:8000/api/repos/o/r')).toBe(true);
+    expect(DL.isLocalRepo('http://localhost/api/repos/o/r')).toBe(true);
+    expect(DL.isLocalRepo('http://localhost.evil.com/api/repos/o/r')).toBe(false);
+    expect(DL.isLocalRepo('http://localhost@evil.com/x')).toBe(false);
+    expect(DL.repoPathFromUrl('http://localhost.evil.com/api/repos/o/r')).toBeNull();
+  });
+});

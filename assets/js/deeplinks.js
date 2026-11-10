@@ -76,19 +76,24 @@
         return path.split('/').map(encodeURIComponent).join('/');
     }
 
+    // True for a local development examples API (http://localhost[:port]/...).
+    function isLocalRepo(repoPath) {
+        return typeof repoPath === 'string' && /^http:\/\/localhost(:\d+)?\//.test(repoPath);
+    }
+
     // "owner/repo" for a GitHub examples repository URL, the URL itself for a
     // local development API (http://localhost...), or null.
     function repoPathFromUrl(repoUrl) {
         if (typeof repoUrl !== 'string') return null;
         repoUrl = repoUrl.trim().replace(/\/+$/, '');
-        if (repoUrl.indexOf('http://localhost') === 0) return repoUrl;
+        if (isLocalRepo(repoUrl)) return repoUrl;
         var m = /^https:\/\/github\.com\/([^/\s]+\/[^/\s]+)$/.exec(repoUrl);
         return m ? m[1] : null;
     }
 
     // URL of the raw .rq file, built the same way as the examples tree does.
     function rawUrl(repoPath, ref, path) {
-        if (repoPath.indexOf('http://localhost') === 0) {
+        if (isLocalRepo(repoPath)) {
             return repoPath.replace('/api/repos/', '/raw/') + '/' + encodePath(path);
         }
         return 'https://raw.githubusercontent.com/' + repoPath + '/' + encodePath(ref) + '/' + encodePath(path);
@@ -103,6 +108,15 @@
     // the link asks for was published in the examples repository.
     function refIsPublished(compare) {
         return !!compare && (compare.status === 'ahead' || compare.status === 'identical');
+    }
+
+    // Full commit hash that the compare call resolved the ref to, when the ref is
+    // published; null otherwise. The file is then fetched at exactly this commit,
+    // so a short hash or name cannot resolve to something else on the raw host.
+    function publishedCommit(compare) {
+        if (!refIsPublished(compare) || !compare.base_commit) return null;
+        var sha = compare.base_commit.sha;
+        return typeof sha === 'string' && /^[0-9a-f]{40}$/.test(sha) ? sha : null;
     }
 
     // Path inside the repository for a raw GitHub URL of the examples tree
@@ -169,6 +183,8 @@
         rawUrl: rawUrl,
         compareUrl: compareUrl,
         refIsPublished: refIsPublished,
+        publishedCommit: publishedCommit,
+        isLocalRepo: isLocalRepo,
         pathFromRawHref: pathFromRawHref,
         acceptedValues: acceptedValues,
         buildExampleUrl: buildExampleUrl
