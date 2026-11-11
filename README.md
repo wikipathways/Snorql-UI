@@ -29,27 +29,40 @@ Want to use Snorql-UI with your own RDF database? See [FORK.md](FORK.md) for ste
 
 ## SPARQL examples
 
-Snorql-UI loads example queries from any public GitHub repository containing `.rq` files. Queries can include comment headers for titles, descriptions, categories, and user-editable parameters.
+Snorql-UI loads example queries from a public GitHub repository, in one of two formats
+(`examplesFormat` in `config.js`):
 
-See [EXAMPLES.md](EXAMPLES.md) for how to structure your examples repository.
+- **`.ttl` files with an index** (`"index"`, used by WikiPathways): one Turtle file per example
+  in the format of SIB's sparql-examples, with a permanent identifier, a version, creators,
+  categories and parameters. The repository's CI checks them and publishes an index that the
+  editor reads. See [tools/examples/README.md](tools/examples/README.md).
+- **`.rq` files** (`"rq"`, the default): queries with comment headers for title, description and
+  parameters, listed from the repository. See [EXAMPLES.md](EXAMPLES.md).
 
 ### Link to an example query
 
-Add `?example=` with the path of the `.rq` file in the examples repository to open that query,
-with its title, description and parameter fields, exactly as when it is picked in the tree:
+Add `?example=` with the example's identifier (or, for `.rq` files, the path of the file) to open
+that query, with its title, description and parameter fields, exactly as when it is picked in the tree:
 
 ```
-https://sparql.wikipathways.org/?example=D. General/GenesofPathway.rq
+https://sparql.wikipathways.org/?example=WPQ036
+https://sparql.wikipathways.org/?example=WPQ036&pathwayId=WP254
+https://sparql.wikipathways.org/?example=WPQ036&version=1.0.0
 https://sparql.wikipathways.org/?example=D. General/GenesofPathway.rq&pathwayId=WP254
-https://sparql.wikipathways.org/?example=A. Metadata/datacounts/countPathways.rq&ref=3f62091
 ```
 
-- Other parameters set the query's `# param:` fields by name (`pathwayId=WP254`). Unknown names
+- Other parameters set the query's parameters by name (`pathwayId=WP254`). Unknown names
   are ignored, and enum values must be one of the options.
-- `ref` reads the file from a branch, tag or commit instead of the configured `examplesBranch`.
+- `version` (index only) shows that version of the example; the editor also lists every
+  published version under the description. Old paths of an example (its former `.rq` file)
+  still open it.
+- `ref` reads the example from a commit or tag instead of the current version. With an index, the
+  commit must be one at which the example got a version, or a release tag; for `.rq` files it can
+  be any branch, tag or commit.
   Without it the link shows the current version of the query; with a commit it keeps showing that version.
-  Only versions that the configured branch contains are accepted (checked with GitHub's compare API),
-  because GitHub also serves commits from forks and pull requests under the repository's path.
+  Only versions that the configured branch contains are accepted (for `.rq` files checked with the
+  repository's commit index or GitHub's compare API, because GitHub also serves commits from forks
+  and pull requests under the repository's path; an index only lists published versions).
 - `endpoint` works as usual.
 
 Picking an example in the tree, or changing one of its parameters, puts this short link in the

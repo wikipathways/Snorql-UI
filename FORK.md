@@ -55,7 +55,9 @@ All configuration lives in `assets/js/config.js`. Edit this file to customize th
 | Field | Default | Description |
 |-------|---------|-------------|
 | `endpoint` | `http://localhost:8890/sparql` | SPARQL endpoint URL. The UI sends all queries here. |
-| `examplesRepo` | `""` (empty) | GitHub repository URL containing `.rq` example files. Leave empty to hide the examples panel. |
+| `examplesRepo` | `""` (empty) | GitHub repository URL with the example queries. Leave empty to hide the examples panel. |
+| `examplesFormat` | `"rq"` | `"index"`: read the published index of `.ttl` examples from the repository's `examples-index` branch (see [tools/examples/README.md](tools/examples/README.md)); `"rq"`: list `.rq` files. |
+| `examplesIndexUrl` | `""` | Base URL of the published index when it is not the `examples-index` branch of `examplesRepo`. |
 | `defaultGraph` | `""` (empty) | Default named graph for queries. Leave empty to use the endpoint's default. |
 | `title` | `My SPARQL Explorer` | Browser tab title and header text. |
 | `poweredByLink` | `https://github.com/wikipathways/snorql-extended` | URL for the "Powered by" link in the footer. |
@@ -111,9 +113,13 @@ Linkouts is the reference example for adding new config-driven UI features — s
 
 ## Adding SPARQL Examples
 
-Snorql-UI loads example queries from a public GitHub repository. Each query is a `.rq` file with optional comment headers that control how the query appears in the examples panel.
+Snorql-UI loads example queries from a public GitHub repository, either as `.ttl` files with a
+published index (`examplesFormat: "index"`; permanent identifiers, versions and metadata, see
+[tools/examples/README.md](tools/examples/README.md)) or as `.rq` files with comment headers
+(`examplesFormat: "rq"`, described below).
 
-The supported comment headers are `#title:`, `#description:`, `#category:`, and `#param:`.
+The supported comment headers are `# title:`, `# description:` and `# param:`. (`# category:` is
+allowed but not used; the tree follows the folders.)
 
 ### Comment Header Reference
 
@@ -121,8 +127,7 @@ The supported comment headers are `#title:`, `#description:`, `#category:`, and 
 |--------|----------|-------------|
 | `# title:` | No | Display name in the examples panel. Falls back to the filename if omitted. |
 | `# description:` | No | Short description shown when the query is selected. |
-| `# category:` | No | Groups the query under a category in the tree view. |
-| `# param:` | No | Declares a parameter. Format: `# param: name type description` |
+| `# param:` | No | Declares a parameter. Format: `# param: name|type|default|label` |
 
 ### Basic Example
 
@@ -147,8 +152,7 @@ Parameters let users fill in values before running a query. The `{{name}}` place
 ```sparql
 # title: Find resources by label
 # description: Search for resources matching a text pattern
-# category: Search
-# param: pattern string Enter search text
+# param: pattern|string|apoptosis|Search text
 
 SELECT ?resource ?label
 WHERE {
@@ -158,10 +162,11 @@ WHERE {
 LIMIT 50
 ```
 
-The `# param:` header format is: `# param: name type description`
+The `# param:` header format is: `# param: name|type|default|label`
 - **name** -- the placeholder name used in `{{name}}`
-- **type** -- `string`, `uri`, or `enum(value1,value2,value3)`
-- **description** -- label shown in the parameter input form
+- **type** -- `string`, `uri`, `enum:value1,value2` (or `enum:value=Label,...`), or `autocomplete:<type>` (a list from `autocompleteTypes` in `config.js`)
+- **default** -- the value used until the user changes it
+- **label** -- label shown in the parameter input form
 
 ### Setting Up Your Examples Repository
 
@@ -171,12 +176,7 @@ The `# param:` header format is: `# param: name type description`
    ```javascript
    examplesRepo: "https://github.com/your-org/your-sparql-queries",
    ```
-4. If your queries are in a subdirectory, use the GitHub API URL format:
-   ```javascript
-   examplesRepo: "https://api.github.com/repos/your-org/your-repo/contents/sparql",
-   ```
-
-The UI fetches the file list from the GitHub API and displays them in the examples panel automatically.
+The UI lists the files through jsDelivr (GitHub's API as fallback) and shows them in the examples panel; the list is cached for an hour in the browser.
 
 ## Docker Environment Variables
 

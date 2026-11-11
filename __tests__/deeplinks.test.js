@@ -277,3 +277,44 @@ describe('commit index', () => {
     expect(DL.commitFromIndex({ branch: 'master', commits: ['d4ceb96'] }, 'd4ceb96', 'master')).toBeNull();
   });
 });
+
+describe('identifiers and versions (examples index)', () => {
+  test('readParams reads the version and keeps it out of the parameter values', () => {
+    const r = DL.readParams('?example=WPQ036&version=1.0.0&pathwayId=WP1');
+    expect(r.example).toBe('WPQ036');
+    expect(r.version).toBe('1.0.0');
+    expect(r.values).toEqual({ pathwayId: 'WP1' });
+  });
+
+  test('sanitizeExampleKey accepts identifiers and .rq or .ttl paths', () => {
+    expect(DL.sanitizeExampleKey('WPQ036')).toBe('WPQ036');
+    expect(DL.sanitizeExampleKey(' wpq036 ')).toBe('wpq036');
+    expect(DL.sanitizeExampleKey('D. General/GenesofPathway.rq')).toBe('D. General/GenesofPathway.rq');
+    expect(DL.sanitizeExampleKey('D. General/GenesofPathway.ttl')).toBe('D. General/GenesofPathway.ttl');
+  });
+
+  test.each([['WP12'], ['../x.ttl'], ['a//b.ttl'], ['https://evil.example/x.ttl'], ['x.json'], ['WPQ' + '1'.repeat(50)]])(
+    'sanitizeExampleKey rejects %s', (key) => {
+      expect(DL.sanitizeExampleKey(key)).toBeNull();
+    });
+
+  test('sanitizeVersion', () => {
+    expect(DL.sanitizeVersion('1.10.0')).toBe('1.10.0');
+    expect(DL.sanitizeVersion('1.0')).toBeNull();
+    expect(DL.sanitizeVersion('01.0.0')).toBeNull();
+    expect(DL.sanitizeVersion('1.0.0/../x')).toBeNull();
+  });
+
+  test('buildExampleUrl with an identifier and a version', () => {
+    expect(DL.buildExampleUrl('https://s/', {
+      example: 'WPQ036', version: '1.0.0',
+      params: [{ name: 'pathwayId', value: 'WP254', defaultValue: 'WP1560' }]
+    })).toBe('https://s/?example=WPQ036&version=1.0.0&pathwayId=WP254');
+  });
+
+  test('a parameter called version cannot get into the link', () => {
+    expect(DL.buildExampleUrl('https://s/', {
+      example: 'WPQ036', params: [{ name: 'version', value: 'x', defaultValue: 'y' }]
+    })).toBe('https://s/?example=WPQ036');
+  });
+});

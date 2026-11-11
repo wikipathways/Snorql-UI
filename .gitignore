@@ -58,3 +58,11 @@ snorql-extended/
 # Keep specific files tracked (override above patterns)
 !scripts/load.sh.template
 !scripts/load-rdf-example.sh
+
+# Turtle files that belong to the code: the Snorql vocabulary and the example shapes
+!ns/*.ttl
+!tools/examples/*.ttl
+
+# Python
+__pycache__/
+.pytest_cache/
