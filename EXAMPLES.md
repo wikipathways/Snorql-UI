@@ -1,6 +1,10 @@
 # Structuring your SPARQL examples repository
 
-Snorql-UI pulls example queries from a public GitHub repository. It reads the repo's file tree through the GitHub API and shows every `.rq` file it finds. Everything else is ignored.
+This page describes the `.rq` format (`examplesFormat: "rq"`). For examples as `.ttl` files with
+permanent identifiers, versions and metadata (`examplesFormat: "index"`), see
+[tools/examples/README.md](tools/examples/README.md).
+
+Snorql-UI pulls example queries from a public GitHub repository. It lists the repo's files through jsDelivr (GitHub's API as fallback) and shows every `.rq` file it finds. Everything else is ignored.
 
 ## File layout
 
@@ -39,7 +43,7 @@ SELECT ?pathway ?id WHERE {
 
 `# description:` adds a short explanation that appears as a popover when someone selects the query. You can split long descriptions across multiple `# description:` lines -- they get joined with a space.
 
-`# category:` tags the query for the category filter buttons above the examples panel. Comma-separated values assign a query to multiple categories. Categories are independent from the folder structure, so a file sitting in the `schema/` folder can have `# category: Genes` and it'll appear under the "Genes" filter.
+`# category:` is accepted but not used by the editor: the tree follows the folders. (In the `.ttl` format, categories do set the tree.)
 
 ## Parameters
 
@@ -80,16 +84,16 @@ You can have multiple parameters. One `# param:` line per parameter.
 Set the `examplesRepo` field in `config.js`:
 
 ```javascript
-// Whole repository
-examplesRepo: "https://github.com/your-org/sparql-examples"
-
-// Subdirectory within a repository
-examplesRepo: "https://api.github.com/repos/your-org/your-repo/contents/sparql-queries"
+examplesRepo: "https://github.com/your-org/sparql-examples",
+examplesBranch: "main"   // default "master"
 ```
 
-The repository must be public. GitHub allows 60 unauthenticated API requests per hour, but Snorql-UI caches responses in sessionStorage so repeated page loads in the same browser session don't hit the API again.
+Only whole repositories are supported (`https://github.com/<owner>/<repo>`); every `.rq` file in
+the branch is listed, in its folder.
+
+The repository must be public. The file list comes from jsDelivr, with GitHub's API (60 unauthenticated requests per hour) as fallback, and is cached for an hour in localStorage, so repeated page loads don't list the repository again.
 
 ## Example repositories
 
 - WikiPathways: https://github.com/wikipathways/SPARQLQueries
-- SARS-CoV-2 (subfolder): https://api.github.com/repos/egonw/SARS-CoV-2-Queries/contents/sparql
+- AOP-Wiki: https://github.com/marvinm2/AOP-Wiki-Queries
