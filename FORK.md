@@ -219,10 +219,25 @@ Set these in `config.js` (applied by `assets/js/branding.js`); see the commented
 there. The footer is a list of plain-text strings, `{ label, url, title }` links and
 `{ image, url, alt, height }` images. Text is never parsed as HTML and URLs are limited to
 http(s)/mailto, so there is no way (and no need) to inject raw markup.
+For a footer of several lines, give a list of lists: each inner list is one line, in its own
+`<p class="footer-row">` that `theme.css` can style.
 
 ### Colours and layout
 
 Put CSS in `assets/css/theme.css`. It is empty in the engine and loaded after `style.css`.
+
+### Extra `<head>` content (structured data)
+
+To add markup to the page's `<head>`, for example a schema.org JSON-LD block that FAIR
+assessment tools and search engines read, copy a `head-extra.html` into the image:
+
+```dockerfile
+COPY head-extra.html /usr/local/apache2/htdocs/head-extra.html
+```
+
+`script.sh` inserts it before `</head>` of `index.html` when the container starts. It is
+inserted as it is, so it must come from your image, never from user input. It is meant for
+static metadata; anything that changes the page belongs in `config.js` and `theme.css`.
 
 ### Namespaces
 

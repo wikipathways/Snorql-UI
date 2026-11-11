@@ -421,3 +421,22 @@ footer p{
     font-weight: normal;
     opacity: 0.75;
 }
+
+/* Navbar: a fixed-height bar on wide screens. On narrow screens Bootstrap collapses #navbar
+   (linkouts and the endpoint field) behind the toggle button, and the bar grows to fit it. */
+#navbar-container {
+    display: inline-block;
+    height: 80px;
+}
+
+@media (max-width: 767px) {
+    #navbar-container {
+        display: block;
+        height: auto;
+    }
+    #navbar-container .navbar-brand {
+        height: auto;
+        padding-top: 5px;
+        padding-bottom: 5px;
+    }
+}

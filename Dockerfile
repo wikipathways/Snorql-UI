@@ -5,7 +5,10 @@ COPY ./index.html /usr/local/apache2/htdocs/
  
 ENV PATH /usr/local/apache2/bin:$PATH
 
-VOLUME /usr/local/apache2/htdocs
+# No VOLUME for htdocs: Docker Compose keeps an anonymous volume's contents when it
+# recreates a container, which hides the files of a newer image (or of an instance image
+# built FROM this one) behind the old ones. Nothing in htdocs needs to persist: script.sh
+# rewrites config.js and index.html on every start.
 
 EXPOSE 80 443
 
