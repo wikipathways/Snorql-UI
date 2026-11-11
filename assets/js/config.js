@@ -2,6 +2,16 @@ window.SNORQL_CONFIG = {
     endpoint: "https://sparql.wikipathways.org/sparql/",
     examplesRepo: "https://github.com/wikipathways/SPARQLQueries",
     examplesBranch: "master",
+    // Where the examples come from:
+    //   "index" - the published index of .ttl examples (index.json on the examples-index
+    //             branch of examplesRepo, built by tools/examples); examples have permanent
+    //             identifiers (?example=WPQ036), versions and metadata. When the repository
+    //             has no index yet, the .rq files are listed instead.
+    //   "rq"    - .rq files with comment headers in examplesRepo (the default).
+    examplesFormat: "index",
+    // Base URL of the published index when it is not the examples-index branch of
+    // examplesRepo (e.g. a local copy for development). Empty: use that branch.
+    examplesIndexUrl: "",
     defaultGraph: "",
     title: "My SPARQL Explorer",
     poweredByLink: "https://github.com/wikipathways/snorql-extended",

@@ -1,13 +1,17 @@
 /*
  * Deep links to example queries.
  *
- *   ?example=<path of an .rq file in the examples repository>
+ *   ?example=<identifier of the example, e.g. WPQ036, or path of an .rq file>
+ *   [&version=<version of the example, e.g. 1.0.0>]   (examples from an index)
  *   [&ref=<branch, tag or commit to read it from>]
  *   [&<param name>=<value>]...   values for the query's # param: fields
  *   [&endpoint=<endpoint URL>]
  *
- * For example ?example=D. General/GenesofPathway.rq&pathwayId=WP1560 opens
- * "Genes of a Pathway" with its description and parameter panel, for WP1560.
+ * For example ?example=WPQ036&pathwayId=WP1560 opens "Genes of a Pathway" with
+ * its description and parameter panel, for WP1560. With CONFIG.examplesFormat
+ * "index" the identifier is looked up in the published index (examples-index.js),
+ * where old paths still resolve; with "rq" the link names an .rq file, e.g.
+ * ?example=D. General/GenesofPathway.rq.
  * Without ref the configured examples branch is used, so the link always shows
  * the current version of the query; with ref it shows that version.
  *
@@ -25,19 +29,21 @@
     'use strict';
 
     // URL parameters that are not query parameters.
-    var RESERVED = ['example', 'ref', 'endpoint', 'q'];
+    var RESERVED = ['example', 'ref', 'version', 'endpoint', 'q'];
     var MAX_VALUE_LENGTH = 500;
 
     // Read the deep-link parameters from a location.search string.
     // Returns { example, ref, values } where values holds the other parameters.
     function readParams(search) {
-        var out = { example: null, ref: null, values: {} };
+        var out = { example: null, ref: null, version: null, values: {} };
         var params = new URLSearchParams(search || '');
         params.forEach(function (value, key) {
             if (key === 'example') {
                 out.example = value;
             } else if (key === 'ref') {
                 out.ref = value;
+            } else if (key === 'version') {
+                out.version = value;
             } else if (RESERVED.indexOf(key) === -1) {
                 out.values[key] = value;
             }
@@ -62,6 +68,27 @@
             if (segments[i] === '' || segments[i] === '.' || segments[i] === '..') return null;
         }
         return path;
+    }
+
+    // An example identifier (letters followed by at least three digits, e.g. WPQ036),
+    // or a relative path to an .rq or .ttl file (no scheme, no "..", no empty segments).
+    // Returns the cleaned key, or null when it is not acceptable.
+    function sanitizeExampleKey(key) {
+        if (typeof key !== 'string') return null;
+        var k = key.trim();
+        if (/^[A-Za-z]+[0-9]{3,}$/.test(k) && k.length <= 40) return k;
+        if (/\.ttl$/i.test(k)) {
+            var asRq = sanitizeExamplePath(k.replace(/\.ttl$/i, '.rq'));
+            return asRq ? asRq.replace(/\.rq$/i, k.slice(-4)) : null;
+        }
+        return sanitizeExamplePath(k);
+    }
+
+    // A version number MAJOR.MINOR.PATCH, or null.
+    function sanitizeVersion(v) {
+        if (typeof v !== 'string') return null;
+        v = v.trim();
+        return /^(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})$/.test(v) ? v : null;
     }
 
     // A git branch, tag or commit hash. Returns it, or null when it is not acceptable.
@@ -190,11 +217,13 @@
     }
 
     // Shareable link for an example. state:
-    //   path, ref (optional), params: [{ name, value, defaultValue }],
+    //   example (identifier) or path (.rq file), version (optional), ref (optional),
+    //   params: [{ name, value, defaultValue }],
     //   endpoint, defaultEndpoint (endpoint is only added when it differs).
     function buildExampleUrl(base, state) {
         var enc = function (s) { return encodeURIComponent(s).replace(/%2F/g, '/'); };
-        var parts = ['example=' + enc(state.path)];
+        var parts = ['example=' + enc(state.example || state.path)];
+        if (state.version) parts.push('version=' + enc(state.version));
         if (state.ref) parts.push('ref=' + enc(state.ref));
         var params = state.params || [];
         for (var i = 0; i < params.length; i++) {
@@ -213,6 +242,8 @@
         RESERVED: RESERVED,
         readParams: readParams,
         sanitizeExamplePath: sanitizeExamplePath,
+        sanitizeExampleKey: sanitizeExampleKey,
+        sanitizeVersion: sanitizeVersion,
         sanitizeRef: sanitizeRef,
         repoPathFromUrl: repoPathFromUrl,
         rawUrl: rawUrl,

@@ -381,3 +381,43 @@ footer p{
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
 }
+
+/* Metadata of an example from the examples index (examples-index.js) */
+#desc-meta {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #555;
+}
+#desc-meta .example-meta-line > * {
+    vertical-align: middle;
+}
+#desc-meta .example-id {
+    font-size: 12px;
+}
+#desc-meta .example-version select {
+    display: inline-block;
+    width: auto;
+    height: 24px;
+    padding: 0 4px;
+    font-size: 12px;
+}
+#desc-meta .example-people,
+#desc-meta .example-federated,
+#desc-meta .example-keywords {
+    margin-top: 4px;
+}
+#desc-meta .example-keywords .label {
+    display: inline-block;
+    margin: 0 2px 2px 0;
+    font-size: 11px;
+    font-weight: normal;
+}
+#desc-meta .alert {
+    padding: 6px 10px;
+    margin-bottom: 6px;
+}
+#examples .badge,
+#examples-fs .badge {
+    font-weight: normal;
+    opacity: 0.75;
+}

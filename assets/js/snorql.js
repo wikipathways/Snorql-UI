@@ -6,9 +6,21 @@ var _currentTemplate = null;
 var _currentParams = null;
 var _currentParsedTitle = null; // Raw Mustache title template from #title header
 var _panelState = 'welcome'; // 'welcome' | 'active' | 'stale'
-var _currentExample = null; // { path, ref } of the loaded example, for ?example= links (deeplinks.js)
+var _currentExample = null; // { path, ref } or { id, version } of the loaded example, for ?example= links (deeplinks.js)
+var _currentMode = 'rq'; // where the example on screen came from: 'rq' (an .rq file) or 'index' (the examples index)
+var _currentEntry = null; // index entry of the example on screen (index mode)
+var _examplesIndex = null; // index.json of the examples repository (index mode)
+var _indexPromise = null;
+var _historyPromise = null;
 // deeplinks.js may be missing in a fork with an older index.html; then there are no ?example= links.
 function hasDeepLinks() { return typeof DeepLinks !== 'undefined'; }
+function hasExamplesIndex() { return typeof ExamplesIndex !== 'undefined'; }
+
+// "index": examples come from the published index of .ttl examples (examples-index.js);
+// "rq" (default): .rq files listed from the examples repository.
+function examplesFormat() {
+    return hasExamplesIndex() && window.SNORQL_CONFIG && window.SNORQL_CONFIG.examplesFormat === 'index' ? 'index' : 'rq';
+}
 
 function showWelcomePanel() {
     _panelState = 'welcome';
@@ -17,12 +29,13 @@ function showWelcomePanel() {
     $('.stale-indicator').hide();
     $('#desc-params').hide();
     $('#desc-param-divider').hide();
+    hideExampleMetadata();
     $('#description-panel').removeClass('panel-stale').css('opacity', 1);
 }
 
 function showQueryPanel(parsed) {
     _panelState = 'active';
-    if (parsed.title && _currentParams && _currentParams.length > 0) {
+    if (_currentMode === 'rq' && parsed.title && _currentParams && _currentParams.length > 0) {
         // Render title with default param values (D-01, D-02)
         var titleView = {};
         for (var i = 0; i < _currentParams.length; i++) {
@@ -370,6 +383,14 @@ function substituteParams(templateContent, params) {
     return rendered;
 }
 
+// The query for the editor: the example's text with the current parameter values.
+// An .rq file has {{name}} placeholders and a comment header; an index example
+// binds each parameter in a VALUES block.
+function renderTemplate(template, params) {
+    if (_currentMode === 'index') return ExamplesIndex.substituteValues(template, params, readParamValue);
+    return stripHeaders(substituteParams(template, params));
+}
+
 function stripHeaders(content) {
     var lines = content.split('\n');
     var startIndex = 0;
@@ -657,8 +678,7 @@ function buildParamPanel(params, templateContent) {
     }
 
     // Trigger initial substitution with defaults
-    var substituted = substituteParams(templateContent, params);
-    var body = stripHeaders(substituted);
+    var body = renderTemplate(templateContent, params);
     _paramIgnoreChange = true;
     editor.getDoc().setValue(body);
     _paramIgnoreChange = false;
@@ -836,6 +856,7 @@ function filterTreeBySearch(nodes, lowerPattern) {
             var matches = false;
             if (node.text && node.text.toLowerCase().indexOf(lowerPattern) !== -1) matches = true;
             if (!matches && node.description && node.description.toLowerCase().indexOf(lowerPattern) !== -1) matches = true;
+            if (!matches && node.searchText && node.searchText.indexOf(lowerPattern) !== -1) matches = true;
             if (matches) {
                 result.push(JSON.parse(JSON.stringify(node)));
             }
@@ -853,35 +874,55 @@ function searchExamples(pattern, suffix) {
     initTreeview(filtered, suffix);
 }
 
-// Show an example query: description panel, parameter panel and editor.
+// Show an example query from an .rq file: description panel, parameter panel and editor.
 // example is { path, ref } when the query came from the examples repository
 // (the address bar then gets a short ?example= link), or null.
 // linkValues are parameter values from a deep link ({ name: value }), or null.
 function applyExampleContent(content, example, linkValues) {
     var parsed = parseRqHeaders(content);
+    _currentMode = 'rq';
+    _currentEntry = null;
     _currentExample = example;
+    // Cache the raw title for re-rendering with parameter values
+    _currentParsedTitle = parsed.params.length > 0 ? parsed.title : null;
+    hideExampleMetadata();
+    showExample(parsed, content, parsed.params, linkValues);
+}
 
+// Show an example from the examples index. version is the version on screen when it
+// is not the current one (the address bar then pins it), or null.
+function applyIndexExample(entry, version, linkValues) {
+    _currentMode = 'index';
+    _currentEntry = entry;
+    _currentExample = { id: entry.id, version: version || null };
+    _currentParsedTitle = null;
+    showExample({ title: entry.label, description: entry.description }, entry.query,
+        ExamplesIndex.toParams(entry), linkValues);
+    showExampleMetadata(entry, version);
+}
+
+// Description panel, parameter panel and editor for an example. parsed is { title,
+// description }, template the query text, params its parameters.
+function showExample(parsed, template, params, linkValues) {
     // Set template state BEFORE showQueryPanel so title can render with defaults
-    if (parsed.params.length > 0) {
-        _currentTemplate = content;
-        _currentParams = parsed.params;
-        _currentParsedTitle = parsed.title; // Cache raw title for re-rendering
+    if (params.length > 0) {
+        _currentTemplate = template;
+        _currentParams = params;
     } else {
         _currentTemplate = null;
         _currentParams = null;
-        _currentParsedTitle = null;
     }
 
     showQueryPanel(parsed);
 
     var body;
-    if (parsed.params.length > 0) {
+    if (params.length > 0) {
         _paramMode = true;
-        buildParamPanel(parsed.params, content);
+        buildParamPanel(params, template);
         // Show param section
         $('#desc-param-divider').show();
         $('#desc-params').show();
-        var values = hasDeepLinks() ? DeepLinks.acceptedValues(parsed.params, linkValues) : {};
+        var values = hasDeepLinks() ? DeepLinks.acceptedValues(params, linkValues) : {};
         var names = Object.keys(values);
         if (names.length > 0) {
             // Values go into the input fields with .val(), never into HTML. The change
@@ -894,13 +935,13 @@ function applyExampleContent(content, example, linkValues) {
             $('#param-' + names[0]).trigger('change');
             return;
         }
-        body = stripHeaders(substituteParams(content, parsed.params));
+        body = renderTemplate(template, params);
     } else {
         _paramMode = false;
         // Hide param section
         $('#desc-param-divider').hide();
         $('#desc-params').hide();
-        body = stripHeaders(content);
+        body = _currentMode === 'index' ? template : stripHeaders(template);
         _paramIgnoreChange = true;
         editor.getDoc().setValue(body);
         _paramIgnoreChange = false;
@@ -908,17 +949,150 @@ function applyExampleContent(content, example, linkValues) {
     window.history.replaceState(null, "", shareUrl(body));
 }
 
+// ---- Examples index (CONFIG.examplesFormat = "index") ----
+
+var INDEX_CACHE_PREFIX = 'snorql_index_';
+// The index is one small file; keep it for 15 minutes so new examples show up soon.
+var INDEX_CACHE_TTL_MS = 15 * 60 * 1000;
+
+function examplesIndexBase() {
+    var repoPath = hasDeepLinks() ? DeepLinks.repoPathFromUrl(jQuery('#examples-repo').val() || '') : null;
+    return ExamplesIndex.indexBase(repoPath, window.SNORQL_CONFIG && window.SNORQL_CONFIG.examplesIndexUrl);
+}
+
+// index.json, loaded once per page (and cached for a while in localStorage).
+function loadExamplesIndex() {
+    if (_indexPromise) return _indexPromise;
+    var deferred = $.Deferred();
+    var base = examplesIndexBase();
+    if (!base) return deferred.reject({ status: 0 }).promise();
+    var cacheKey = INDEX_CACHE_PREFIX + base;
+    try {
+        var cached = JSON.parse(localStorage.getItem(cacheKey));
+        if (cached && ExamplesIndex.isIndex(cached.index) && Date.now() - cached.time < INDEX_CACHE_TTL_MS) {
+            _examplesIndex = cached.index;
+            _indexPromise = deferred.resolve(cached.index).promise();
+            return _indexPromise;
+        }
+    } catch (e) { /* no storage or bad entry */ }
+    var promise = deferred.promise();
+    _indexPromise = promise;
+    jQuery.ajax({ url: base + 'index.json', dataType: 'json' }).done(function(index) {
+        if (!ExamplesIndex.isIndex(index)) {
+            _indexPromise = null;
+            deferred.reject({ status: 0, badIndex: true });
+            return;
+        }
+        _examplesIndex = index;
+        try {
+            localStorage.setItem(cacheKey, JSON.stringify({ time: Date.now(), index: index }));
+        } catch (e) { /* silently continue */ }
+        deferred.resolve(index);
+    }).fail(function(xhr) {
+        _indexPromise = null;
+        deferred.reject(xhr || { status: 0 });
+    });
+    return promise;
+}
+
+// history.json: every published version of every example.
+function loadExamplesHistory() {
+    if (_historyPromise) return _historyPromise;
+    var deferred = $.Deferred();
+    var base = examplesIndexBase();
+    if (!base) return deferred.reject({ status: 0 }).promise();
+    var promise = deferred.promise();
+    _historyPromise = promise;
+    jQuery.ajax({ url: base + 'history.json', dataType: 'json' }).done(function(history) {
+        deferred.resolve(history);
+    }).fail(function(xhr) {
+        _historyPromise = null;
+        deferred.reject(xhr || { status: 0 });
+    });
+    return promise;
+}
+
+function fetchIndexExamples(suffix) {
+    loadExamplesIndex().done(function(index) {
+        var tree = ExamplesIndex.buildTree(index);
+        _fullTreeData = JSON.parse(JSON.stringify(tree));
+        initTreeview(tree, suffix);
+    }).fail(function(xhr) {
+        // No published index (yet): list the .rq files as before.
+        if (xhr && xhr.status === 404) {
+            fetchRqExamples(suffix);
+            return;
+        }
+        showExamplesError(suffix, 'Could not load the examples index.');
+    });
+}
+
+// Show a version of an example from the index: the current one from index.json,
+// an older one from versions/<id>/<version>.json.
+function loadIndexVersion(id, version, linkValues) {
+    var current = ExamplesIndex.findExample(_examplesIndex, id);
+    if (current && current.version === version) {
+        applyIndexExample(current, null, linkValues);
+        return;
+    }
+    var url = ExamplesIndex.versionUrl(examplesIndexBase(), id, version);
+    if (!url) {
+        showExampleLinkError(id + ' ' + version);
+        return;
+    }
+    jQuery.ajax({ url: url, dataType: 'json' }).done(function(snapshot) {
+        if (!snapshot || snapshot.id !== id || snapshot.version !== version) {
+            showExampleLinkError(id + ' version ' + version);
+            return;
+        }
+        applyIndexExample(snapshot, version, linkValues);
+    }).fail(function() {
+        showExampleLinkError(id + ' version ' + version, 'That version is not in the published history of the example.');
+    });
+}
+
+function exampleMetaElement() {
+    var $meta = $('#desc-meta');
+    if (!$meta.length) {
+        // index.html of an older fork has no #desc-meta yet.
+        $meta = $('<div id="desc-meta"></div>');
+        $('#desc-text').after($meta);
+    }
+    return $meta;
+}
+
+// Identifier, version, people, keywords etc. under the description, and the
+// list of versions once the history is loaded.
+function showExampleMetadata(entry, version) {
+    var current = ExamplesIndex.findExample(_examplesIndex, entry.id);
+    exampleMetaElement().html(ExamplesIndex.metadataHtml(entry, {
+        version: version || entry.version,
+        current: current ? current.version : entry.version
+    })).show();
+    loadExamplesHistory().done(function(history) {
+        if (!_currentEntry || _currentEntry.id !== entry.id) return;
+        var options = ExamplesIndex.versionOptionsHtml(history, entry.id, version || entry.version);
+        if (options) $('#desc-version').html(options);
+    });
+}
+
+function hideExampleMetadata() {
+    $('#desc-meta').empty().hide();
+}
+
 // Address-bar link for the query in the editor: a short ?example= link while an
 // example from the repository is shown unedited, otherwise ?q= with the full text.
 function shareUrl(query) {
     var base = window.location.href.split('?')[0];
     var endpoint = jQuery("#endpoint").val().trim();
-    if (hasDeepLinks() && _currentExample && _currentExample.path && _panelState === 'active') {
+    if (hasDeepLinks() && _currentExample && (_currentExample.path || _currentExample.id) && _panelState === 'active') {
         var params = (_currentParams || []).map(function(p) {
             return { name: p.name, value: readParamValue(p), defaultValue: p.defaultValue };
         });
         return DeepLinks.buildExampleUrl(base, {
+            example: _currentExample.id,
             path: _currentExample.path,
+            version: _currentExample.version,
             ref: _currentExample.ref,
             params: params,
             endpoint: endpoint,
@@ -933,6 +1107,64 @@ function loadExampleFromUrl() {
     if (!hasDeepLinks()) return;
     var link = DeepLinks.readParams(window.location.search);
     if (link.example === null) return;
+    if (examplesFormat() === 'index') {
+        loadIndexExampleFromUrl(link);
+    } else {
+        loadRqExampleFromUrl(link);
+    }
+}
+
+// ?example=<identifier or old path>[&version=...|&ref=...] from the examples index.
+function loadIndexExampleFromUrl(link) {
+    var key = DeepLinks.sanitizeExampleKey(link.example);
+    var version = link.version === null ? null : DeepLinks.sanitizeVersion(link.version);
+    var ref = link.ref === null ? null : DeepLinks.sanitizeRef(link.ref);
+    if (!key || (link.version !== null && !version) || (link.ref !== null && !ref)) {
+        showExampleLinkError(link.example);
+        return;
+    }
+    var isRqPath = /\.rq$/i.test(key);
+    loadExamplesIndex().done(function(index) {
+        var entry = ExamplesIndex.findExample(index, key);
+        if (!entry) {
+            if (isRqPath) {
+                loadRqExampleFromUrl(link);
+            } else {
+                showExampleLinkError(key);
+            }
+            return;
+        }
+        if (!version && !ref) {
+            applyIndexExample(entry, null, link.values);
+            return;
+        }
+        loadExamplesHistory().done(function(history) {
+            var v = version || ExamplesIndex.resolveRef(history, entry.id, ref);
+            if (!v && isRqPath) {
+                // A link pinned to a commit from before the .ttl files: read the .rq file at that commit.
+                loadRqExampleFromUrl(link);
+                return;
+            }
+            if (!v) {
+                showExampleLinkError(entry.id + ' (' + (link.version || link.ref) + ')',
+                    'That version is not in the published history of the example.');
+                return;
+            }
+            loadIndexVersion(entry.id, v, link.values);
+        }).fail(function() {
+            showExampleLinkError(entry.id, 'The version history of the examples could not be loaded.');
+        });
+    }).fail(function(xhr) {
+        if (xhr && xhr.status === 404 && isRqPath) {
+            loadRqExampleFromUrl(link);
+            return;
+        }
+        showExampleLinkError(link.example, 'The examples index could not be loaded.');
+    });
+}
+
+// ?example=<path of an .rq file>[&ref=...] from the examples repository.
+function loadRqExampleFromUrl(link) {
     var path = DeepLinks.sanitizeExamplePath(link.example);
     var ref = link.ref === null ? null : DeepLinks.sanitizeRef(link.ref);
     var repoPath = DeepLinks.repoPathFromUrl(jQuery('#examples-repo').val());
@@ -995,6 +1227,7 @@ function checkPinnedRefWithGitHub(repoPath, ref, name, load) {
 
 function showExampleLinkError(name, reason) {
     _panelState = 'welcome';
+    hideExampleMetadata();
     $('#desc-title').text('Example not found');
     $('#desc-text').text('The link asks for the example "' + name + '", which could not be loaded from the examples repository.'
         + (reason ? ' ' + reason : ''));
@@ -1008,7 +1241,13 @@ function initTreeview(tree, suffix) {
         levels: 0,
         expandIcon: 'glyphicon glyphicon-folder-close',
         collapseIcon: 'glyphicon glyphicon-folder-open',
+        showTags: true,
         onNodeSelected: function(event, node) {
+            if (node.exampleId) {
+                var entry = ExamplesIndex.findExample(_examplesIndex, node.exampleId);
+                if (entry) applyIndexExample(entry, null, null);
+                return;
+            }
             if (node.href && (node.href.indexOf("raw.githubusercontent.com") !== -1 || node.href.indexOf("/raw/") !== -1)) {
                 var example = { path: node.path || (hasDeepLinks() ? DeepLinks.pathFromRawHref(node.href) : null), ref: null };
                 var handleContent = function(content) {
@@ -1054,6 +1293,22 @@ function examplesBranch() {
 
 function fetchExamples(suffix) {
     if (typeof suffix === 'undefined') suffix = '';
+    if (examplesFormat() === 'index') {
+        fetchIndexExamples(suffix);
+        return;
+    }
+    fetchRqExamples(suffix);
+}
+
+function showExamplesError(suffix, message) {
+    $('#examples' + suffix).html(
+        '<div class="alert alert-warning" style="margin:10px;">' +
+        '<strong>Note:</strong> ' + escapeHtml(message) +
+        '</div>'
+    );
+}
+
+function fetchRqExamples(suffix) {
 
     var repo = jQuery("#examples-repo").val();
 
@@ -1091,11 +1346,7 @@ function fetchExamples(suffix) {
         } else if (xhr.status === 404) {
             message = 'Examples repository not found. Please check the URL.';
         }
-        $('#examples' + suffix).html(
-            '<div class="alert alert-warning" style="margin:10px;">' +
-            '<strong>Note:</strong> ' + message +
-            '</div>'
-        );
+        showExamplesError(suffix, message);
     });
 }
 
@@ -1179,14 +1430,28 @@ function start(){
                 $('#desc-title').text(Mustache.render(_currentParsedTitle, titleView));
             }
 
-            // Existing query body substitution (unchanged)
-            var substituted = substituteParams(_currentTemplate, _currentParams);
-            var body = stripHeaders(substituted);
+            var body = renderTemplate(_currentTemplate, _currentParams);
             _paramIgnoreChange = true;
             editor.getDoc().setValue(body);
             _paramIgnoreChange = false;
             // Update URL: ?example= link with the changed values, or ?q= with the query
             window.history.replaceState(null, "", shareUrl(body));
+        }
+    });
+
+    // Version selector and IRI button of an example from the index
+    $(document).on('change', '#desc-version', function() {
+        var version = $(this).val();
+        if (_currentEntry && ExamplesIndex.isVersion(version)) loadIndexVersion(_currentEntry.id, version, null);
+    });
+    $(document).on('click', '#desc-copy-iri', function() {
+        if (!_currentEntry) return;
+        var $btn = $(this);
+        var done = function() { $btn.attr('data-copied', '1').find('i').attr('class', 'glyphicon glyphicon-ok'); };
+        if (typeof copyToClipboard === 'function') {
+            copyToClipboard(_currentEntry.iri).then(done);
+        } else if (navigator.clipboard) {
+            navigator.clipboard.writeText(_currentEntry.iri).then(done);
         }
     });
 

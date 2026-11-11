@@ -47,6 +47,14 @@ if [[ -n "${SNORQL_EXAMPLES_BRANCH}" ]]; then
   set_string examplesBranch "${SNORQL_EXAMPLES_BRANCH}"
 fi
 
+if [[ -n "${SNORQL_EXAMPLES_FORMAT}" ]]; then
+  set_string examplesFormat "${SNORQL_EXAMPLES_FORMAT}"
+fi
+
+if [[ -n "${SNORQL_EXAMPLES_INDEX_URL}" ]]; then
+  set_string examplesIndexUrl "${SNORQL_EXAMPLES_INDEX_URL}"
+fi
+
 if [[ -n "${DEFAULT_GRAPH}" ]]; then
   set_string defaultGraph "${DEFAULT_GRAPH}"
 else
