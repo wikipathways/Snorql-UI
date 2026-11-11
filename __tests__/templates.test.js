@@ -1,362 +1,195 @@
 /**
  * @jest-environment node
  *
- * Tests for .rq template files - header syntax validation
- * Gaps 7-9: TMPL-01 through TMPL-06 .rq file structural requirements
+ * The parameterized WikiPathways examples, read from the published index
+ * (wikipathways/SPARQLQueries, branch examples-index) the way the editor reads
+ * them: found by their old .rq path, with the parameters, options and defaults
+ * the panel shows, and a VALUES block that takes the user's value.
+ *
+ * These used to read the .rq files on SPARQLQueries master; the examples are
+ * .ttl files now and the .rq files are gone from master.
  */
 
-const SPARQL_QUERIES_BASE = 'https://raw.githubusercontent.com/wikipathways/SPARQLQueries/master';
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
 
-async function readRq(relPath) {
-  const url = `${SPARQL_QUERIES_BASE}/${encodeURI(relPath)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
-  return res.text();
+const INDEX_URL = 'https://raw.githubusercontent.com/wikipathways/SPARQLQueries/examples-index/index.json';
+const WP = 'http://vocabularies.wikipathways.org/wp#';
+
+const code = fs.readFileSync(path.join(__dirname, '../assets/js/examples-index.js'), 'utf8');
+const sandbox = { window: {} };
+vm.createContext(sandbox);
+vm.runInContext(code, sandbox);
+const EI = sandbox.window.ExamplesIndex;
+
+let index;
+
+beforeAll(async () => {
+  const res = await fetch(INDEX_URL);
+  if (!res.ok) throw new Error(`Failed to fetch ${INDEX_URL}: ${res.status}`);
+  index = await res.json();
+});
+
+// The example an old .rq link points at, and its parameter in panel form.
+function lookup(oldPath, name) {
+  const entry = EI.findExample(index, oldPath);
+  expect(entry).not.toBeNull();
+  const param = EI.toParams(entry).find((p) => p.name === name);
+  expect(param).toBeDefined();
+  return { entry, param };
 }
 
-// Parse #param header lines from .rq content
-function parseParams(content) {
-  const params = [];
-  for (const line of content.split('\n')) {
-    const m = line.trim().match(/^#\s*param:\s*(.+)/i);
-    if (m) {
-      const parts = m[1].split('|');
-      if (parts.length >= 4) {
-        params.push({
-          name: parts[0].trim(),
-          type: parts[1].trim(),
-          defaultValue: parts[2].trim(),
-          label: parts[3].trim()
-        });
-      }
-    }
-  }
-  return params;
+// The query with the parameter set to value, as the editor sends it.
+function withValue(entry, value) {
+  return EI.substituteValues(entry.query, EI.toParams(entry), () => value);
 }
 
-// ─── Gap 7: TMPL-01 through TMPL-04 metadata .rq param headers ───
+function valuesBlock(query, variable) {
+  const m = query.match(new RegExp('VALUES\\s+\\?' + variable + '\\s*\\{([^}]*)\\}'));
+  return m ? m[1].trim() : null;
+}
 
-describe('TMPL-01: countOfEntityType.rq', () => {
-  let content;
-  beforeAll(async () => { content = await readRq('A. Metadata/datacounts/countOfEntityType.rq'); });
+test('the index is schema 1 and lists the examples', () => {
+  expect(index.schema).toBe(1);
+  expect(EI.isIndex(index)).toBe(true);
+  expect(index.examples.length).toBeGreaterThan(50);
+});
 
-  test('file exists and is non-empty', () => {
-    expect(content.length).toBeGreaterThan(0);
+// ─── TMPL-01 to TMPL-04: entity type and data source options ───
+
+const ENTITY_TYPES = ['DataNode', 'GeneProduct', 'Interaction', 'Metabolite', 'Protein'];
+
+describe('TMPL-01: countOfEntityType', () => {
+  const OLD = 'A. Metadata/datacounts/countOfEntityType.rq';
+
+  test('entityType is an enum of the 5 entity types, with labels', () => {
+    const { param } = lookup(OLD, 'entityType');
+    expect(param.type).toBe('enum');
+    expect(param.options.map((o) => o.value)).toEqual(ENTITY_TYPES);
+    expect(param.options.find((o) => o.value === 'GeneProduct').label).toBe('Gene Products');
   });
 
-  test('has required #param header with entityType enum', () => {
-    expect(content).toMatch(/^#\s*param:\s*entityType\|enum:/im);
+  test('default is DataNode, bound in the VALUES block', () => {
+    const { entry, param } = lookup(OLD, 'entityType');
+    expect(param.defaultValue).toBe('DataNode');
+    expect(valuesBlock(entry.query, 'entityType')).toBe(`<${WP}DataNode>`);
   });
 
-  test('entityType param has all 5 enum values', () => {
-    const params = parseParams(content);
-    const entityTypeParam = params.find(p => p.name === 'entityType');
-    expect(entityTypeParam).toBeDefined();
-    const typeSpec = entityTypeParam.type;
-    expect(typeSpec.startsWith('enum:')).toBe(true);
-    const enumValues = typeSpec.substring(5).split(',').map(o => o.split('=')[0].trim());
-    expect(enumValues).toContain('DataNode');
-    expect(enumValues).toContain('GeneProduct');
-    expect(enumValues).toContain('Interaction');
-    expect(enumValues).toContain('Metabolite');
-    expect(enumValues).toContain('Protein');
+  test('choosing an option puts its IRI in the VALUES block', () => {
+    const { entry } = lookup(OLD, 'entityType');
+    expect(valuesBlock(withValue(entry, 'Metabolite'), 'entityType')).toBe(`<${WP}Metabolite>`);
   });
 
-  test('entityType enum uses value=label syntax (human-friendly labels)', () => {
-    const params = parseParams(content);
-    const entityTypeParam = params.find(p => p.name === 'entityType');
-    const typeSpec = entityTypeParam.type;
-    // At least one option should have value=label pair
-    expect(typeSpec).toContain('=');
-    expect(typeSpec).toContain('GeneProduct=Gene Products');
-  });
-
-  test('default value is DataNode', () => {
-    const params = parseParams(content);
-    const entityTypeParam = params.find(p => p.name === 'entityType');
-    expect(entityTypeParam.defaultValue).toBe('DataNode');
-  });
-
-  test('SPARQL body contains Mustache entityType substitution', () => {
-    expect(content).toContain('{{entityType}}');
-  });
-
-  test('does not contain inline PREFIX declarations (uses config.js namespaces)', () => {
-    // Templates should rely on Snorql-UI prefix injection, not inline PREFIXes
-    const sparqlBody = content.split('\n').filter(l => !l.trim().startsWith('#')).join('\n');
-    expect(sparqlBody).not.toMatch(/^\s*PREFIX\s+/im);
+  test('a value that is not an option keeps the default', () => {
+    const { entry } = lookup(OLD, 'entityType');
+    expect(valuesBlock(withValue(entry, 'Pathway> . ?x ?y ?z'), 'entityType')).toBe(`<${WP}DataNode>`);
   });
 });
 
-describe('TMPL-02: averagePerPathway.rq', () => {
-  let content;
-  beforeAll(async () => { content = await readRq('A. Metadata/datacounts/averagePerPathway.rq'); });
+describe('TMPL-02: averagePerPathway', () => {
+  const OLD = 'A. Metadata/datacounts/averagePerPathway.rq';
 
-  test('file exists and is non-empty', () => {
-    expect(content.length).toBeGreaterThan(0);
+  test('uses AVG and binds entityType', () => {
+    const { entry } = lookup(OLD, 'entityType');
+    expect(entry.query.toUpperCase()).toContain('AVG(');
+    expect(valuesBlock(entry.query, 'entityType')).toBe(`<${WP}DataNode>`);
   });
 
-  test('has required #param header with entityType enum', () => {
-    expect(content).toMatch(/^#\s*param:\s*entityType\|enum:/im);
-  });
-
-  test('SPARQL body uses AVG aggregation', () => {
-    expect(content.toUpperCase()).toContain('AVG(');
-  });
-
-  test('SPARQL body contains Mustache entityType substitution', () => {
-    expect(content).toContain('{{entityType}}');
-  });
-
-  test('entityType enum has same 5 values as TMPL-01', () => {
-    const params = parseParams(content);
-    const entityTypeParam = params.find(p => p.name === 'entityType');
-    expect(entityTypeParam).toBeDefined();
-    const enumValues = entityTypeParam.type.substring(5).split(',').map(o => o.split('=')[0].trim());
-    expect(enumValues).toContain('DataNode');
-    expect(enumValues).toContain('GeneProduct');
-    expect(enumValues).toContain('Interaction');
-    expect(enumValues).toContain('Metabolite');
-    expect(enumValues).toContain('Protein');
+  test('entityType has the same 5 options as TMPL-01', () => {
+    const { param } = lookup(OLD, 'entityType');
+    expect(param.options.map((o) => o.value)).toEqual(ENTITY_TYPES);
   });
 });
 
-describe('TMPL-03: pathwaysForDatasource.rq', () => {
-  let content;
-  beforeAll(async () => { content = await readRq('A. Metadata/datasources/pathwaysForDatasource.rq'); });
+describe('TMPL-03: pathwaysForDatasource', () => {
+  const OLD = 'A. Metadata/datasources/pathwaysForDatasource.rq';
 
-  test('file exists and is non-empty', () => {
-    expect(content.length).toBeGreaterThan(0);
+  test('datasource is an enum of 6 data sources with readable labels', () => {
+    const { param } = lookup(OLD, 'datasource');
+    expect(param.type).toBe('enum');
+    expect(param.options.map((o) => o.value).sort())
+      .toEqual(['Chemspider', 'Ensembl', 'EntrezGene', 'HgncSymbol', 'Hmdb', 'PubChem']);
+    expect(param.options.find((o) => o.value === 'Chemspider').label).toBe('ChemSpider');
+    expect(param.options.find((o) => o.value === 'EntrezGene').label).toBe('NCBI Gene');
   });
 
-  test('has required #param header with datasource enum', () => {
-    expect(content).toMatch(/^#\s*param:\s*datasource\|enum:/im);
+  test('default is Ensembl, as the wp:bdb predicate', () => {
+    const { entry, param } = lookup(OLD, 'datasource');
+    expect(param.defaultValue).toBe('Ensembl');
+    expect(valuesBlock(entry.query, 'datasource')).toBe(`<${WP}bdbEnsembl>`);
   });
 
-  test('datasource enum has 6 values with value=label syntax', () => {
-    const params = parseParams(content);
-    const dsParam = params.find(p => p.name === 'datasource');
-    expect(dsParam).toBeDefined();
-    const options = dsParam.type.substring(5).split(',');
-    expect(options).toHaveLength(6);
-    // Values are predicate suffixes (case-sensitive)
-    const values = options.map(o => o.split('=')[0].trim());
-    expect(values).toContain('Chemspider');
-    expect(values).toContain('Ensembl');
-    expect(values).toContain('HgncSymbol');
-    expect(values).toContain('Hmdb');
-    expect(values).toContain('EntrezGene');
-    expect(values).toContain('PubChem');
-  });
-
-  test('datasource enum labels are human-friendly', () => {
-    const params = parseParams(content);
-    const dsParam = params.find(p => p.name === 'datasource');
-    const typeSpec = dsParam.type;
-    expect(typeSpec).toContain('Chemspider=ChemSpider');
-    expect(typeSpec).toContain('EntrezGene=NCBI Gene');
-  });
-
-  test('default datasource value is Ensembl', () => {
-    const params = parseParams(content);
-    const dsParam = params.find(p => p.name === 'datasource');
-    expect(dsParam.defaultValue).toBe('Ensembl');
-  });
-
-  test('SPARQL body uses wp:bdb{{datasource}} predicate pattern', () => {
-    expect(content).toContain('wp:bdb{{datasource}}');
+  test('choosing HGNC binds wp:bdbHgncSymbol', () => {
+    const { entry } = lookup(OLD, 'datasource');
+    expect(valuesBlock(withValue(entry, 'HgncSymbol'), 'datasource')).toBe(`<${WP}bdbHgncSymbol>`);
   });
 });
 
-describe('TMPL-04: countEntityPerSpecies.rq', () => {
-  let content;
-  beforeAll(async () => { content = await readRq('A. Metadata/species/countEntityPerSpecies.rq'); });
+describe('TMPL-04: countEntityPerSpecies', () => {
+  const OLD = 'A. Metadata/species/countEntityPerSpecies.rq';
 
-  test('file exists and is non-empty', () => {
-    expect(content.length).toBeGreaterThan(0);
+  test('entityType has 4 options, without Interaction', () => {
+    const { param } = lookup(OLD, 'entityType');
+    expect(param.options.map((o) => o.value)).toEqual(['DataNode', 'GeneProduct', 'Metabolite', 'Protein']);
   });
 
-  test('has required #param header with entityType enum', () => {
-    expect(content).toMatch(/^#\s*param:\s*entityType\|enum:/im);
-  });
-
-  test('entityType enum has 4 values (no Interaction for per-species)', () => {
-    const params = parseParams(content);
-    const entityTypeParam = params.find(p => p.name === 'entityType');
-    expect(entityTypeParam).toBeDefined();
-    const options = entityTypeParam.type.substring(5).split(',');
-    expect(options).toHaveLength(4);
-    const values = options.map(o => o.split('=')[0].trim());
-    expect(values).toContain('DataNode');
-    expect(values).toContain('GeneProduct');
-    expect(values).toContain('Metabolite');
-    expect(values).toContain('Protein');
-    expect(values).not.toContain('Interaction');
-  });
-
-  test('SPARQL body contains Mustache entityType substitution', () => {
-    expect(content).toContain('{{entityType}}');
-  });
-
-  test('SPARQL body has GROUP BY for per-species aggregation', () => {
-    expect(content.toUpperCase()).toContain('GROUP BY');
+  test('groups by species', () => {
+    const { entry } = lookup(OLD, 'entityType');
+    expect(entry.query.toUpperCase()).toContain('GROUP BY');
   });
 });
 
-// ─── Gap 8: Community .rq templates with autocomplete:community ───
+// ─── TMPL-05: community autocomplete ───
 
-describe('TMPL-05: communityPathways.rq', () => {
-  let content;
-  beforeAll(async () => { content = await readRq('B. Communities/communityPathways.rq'); });
-
-  test('file exists and is non-empty', () => {
-    expect(content.length).toBeGreaterThan(0);
+describe.each([
+  ['B. Communities/communityPathways.rq', 'wp:Pathway'],
+  ['B. Communities/communityProteins.rq', 'wp:Protein']
+])('TMPL-05: %s', (OLD, type) => {
+  test('community autocompletes from the community list, default AOP', () => {
+    const { param } = lookup(OLD, 'community');
+    expect(param.type).toBe('autocomplete');
+    expect(param.autocompleteType).toBe('community');
+    expect(param.defaultValue).toBe('AOP');
   });
 
-  test('has #param header with autocomplete:community type', () => {
-    expect(content).toMatch(/^#\s*param:\s*community\|autocomplete:community/im);
+  test('the value becomes a wp#Curation: tag in the VALUES block', () => {
+    const { entry } = lookup(OLD, 'community');
+    expect(valuesBlock(entry.query, 'community')).toBe(`<${WP}Curation:AOP>`);
+    expect(valuesBlock(withValue(entry, 'Lipids'), 'community')).toBe(`<${WP}Curation:Lipids>`);
   });
 
-  test('param header has AOP as default value', () => {
-    const params = parseParams(content);
-    const communityParam = params.find(p => p.name === 'community');
-    expect(communityParam).toBeDefined();
-    expect(communityParam.defaultValue).toBe('AOP');
-    expect(communityParam.type).toBe('autocomplete:community');
-  });
-
-  test('SPARQL body uses cur:{{community}} for ontology tag filter', () => {
-    expect(content).toContain('cur:{{community}}');
-  });
-
-  test('does NOT contain inline PREFIX cur: declaration', () => {
-    expect(content).not.toMatch(/PREFIX\s+cur:/i);
-  });
-
-  test('SPARQL body filters by wp:Pathway type', () => {
-    expect(content).toContain('wp:Pathway');
+  test(`queries ${type}`, () => {
+    const { entry } = lookup(OLD, 'community');
+    expect(entry.query).toContain(type);
   });
 });
 
-describe('TMPL-05: communityProteins.rq', () => {
-  let content;
-  beforeAll(async () => { content = await readRq('B. Communities/communityProteins.rq'); });
+// ─── TMPL-06: pathway autocomplete ───
 
-  test('file exists and is non-empty', () => {
-    expect(content.length).toBeGreaterThan(0);
+describe.each([
+  'D. General/GenesofPathway.rq',
+  'D. General/InteractionsofPathway.rq',
+  'D. General/MetabolitesofPathway.rq',
+  'D. General/OntologyofPathway.rq'
+])('TMPL-06: %s', (OLD) => {
+  test('pathwayId autocompletes from the pathway list', () => {
+    const { param } = lookup(OLD, 'pathwayId');
+    expect(param.type).toBe('autocomplete');
+    expect(param.autocompleteType).toBe('pathway');
+    expect(param.defaultValue).toMatch(/^WP\d+$/);
   });
 
-  test('has #param header with autocomplete:community type', () => {
-    expect(content).toMatch(/^#\s*param:\s*community\|autocomplete:community/im);
+  test('the VALUES block takes the chosen pathway', () => {
+    const { entry, param } = lookup(OLD, 'pathwayId');
+    const block = valuesBlock(withValue(entry, 'WP254'), param.variable);
+    expect(block).toMatch(/WP254/);
+    expect(block).not.toMatch(new RegExp(param.defaultValue + '\\b'));
   });
 
-  test('SPARQL body uses cur:{{community}} for ontology tag filter', () => {
-    expect(content).toContain('cur:{{community}}');
-  });
-
-  test('SPARQL body queries for wp:Protein entities', () => {
-    expect(content).toContain('wp:Protein');
-  });
-
-  test('does NOT contain inline PREFIX cur: declaration', () => {
-    expect(content).not.toMatch(/PREFIX\s+cur:/i);
-  });
-});
-
-// ─── Gap 9: X-of-pathway queries with autocomplete:pathway ───
-
-describe('TMPL-06: GenesofPathway.rq (autocomplete:pathway migration)', () => {
-  let content;
-  beforeAll(async () => { content = await readRq('D. General/GenesofPathway.rq'); });
-
-  test('file exists and is non-empty', () => {
-    expect(content.length).toBeGreaterThan(0);
-  });
-
-  test('param type is autocomplete:pathway (not string)', () => {
-    const params = parseParams(content);
-    const param = params.find(p => p.name === 'pathwayId');
-    expect(param).toBeDefined();
-    expect(param.type).toBe('autocomplete:pathway');
-  });
-
-  test('does NOT use old "string" param type', () => {
-    expect(content).not.toMatch(/\|\s*string\s*\|/i);
-  });
-
-  test('SPARQL body contains {{pathwayId}} Mustache substitution', () => {
-    expect(content).toContain('{{pathwayId}}');
-  });
-});
-
-describe('TMPL-06: InteractionsofPathway.rq (autocomplete:pathway migration)', () => {
-  let content;
-  beforeAll(async () => { content = await readRq('D. General/InteractionsofPathway.rq'); });
-
-  test('file exists and is non-empty', () => {
-    expect(content.length).toBeGreaterThan(0);
-  });
-
-  test('param type is autocomplete:pathway (not string)', () => {
-    const params = parseParams(content);
-    const param = params.find(p => p.name === 'pathwayId');
-    expect(param).toBeDefined();
-    expect(param.type).toBe('autocomplete:pathway');
-  });
-
-  test('does NOT use old "string" param type', () => {
-    expect(content).not.toMatch(/\|\s*string\s*\|/i);
-  });
-
-  test('SPARQL body contains {{pathwayId}} Mustache substitution', () => {
-    expect(content).toContain('{{pathwayId}}');
-  });
-});
-
-describe('TMPL-06: MetabolitesofPathway.rq (autocomplete:pathway migration)', () => {
-  let content;
-  beforeAll(async () => { content = await readRq('D. General/MetabolitesofPathway.rq'); });
-
-  test('file exists and is non-empty', () => {
-    expect(content.length).toBeGreaterThan(0);
-  });
-
-  test('param type is autocomplete:pathway (not string)', () => {
-    const params = parseParams(content);
-    const param = params.find(p => p.name === 'pathwayId');
-    expect(param).toBeDefined();
-    expect(param.type).toBe('autocomplete:pathway');
-  });
-
-  test('does NOT use old "string" param type', () => {
-    expect(content).not.toMatch(/\|\s*string\s*\|/i);
-  });
-
-  test('SPARQL body contains {{pathwayId}} Mustache substitution', () => {
-    expect(content).toContain('{{pathwayId}}');
-  });
-});
-
-describe('TMPL-06: OntologyofPathway.rq (autocomplete:pathway migration)', () => {
-  let content;
-  beforeAll(async () => { content = await readRq('D. General/OntologyofPathway.rq'); });
-
-  test('file exists and is non-empty', () => {
-    expect(content.length).toBeGreaterThan(0);
-  });
-
-  test('param type is autocomplete:pathway (not string)', () => {
-    const params = parseParams(content);
-    const param = params.find(p => p.name === 'pathwayId');
-    expect(param).toBeDefined();
-    expect(param.type).toBe('autocomplete:pathway');
-  });
-
-  test('does NOT use old "string" param type', () => {
-    expect(content).not.toMatch(/\|\s*string\s*\|/i);
-  });
-
-  test('SPARQL body contains {{pathwayId}} Mustache substitution', () => {
-    expect(content).toContain('{{pathwayId}}');
+  test('a quote in the value cannot leave the VALUES block', () => {
+    const { entry, param } = lookup(OLD, 'pathwayId');
+    const block = valuesBlock(withValue(entry, 'WP254" } ?s ?p ?o { "'), param.variable);
+    expect(block).not.toMatch(/\?s \?p \?o/);
   });
 });
