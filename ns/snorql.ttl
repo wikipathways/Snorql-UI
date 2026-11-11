@@ -1,0 +1,95 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix schema: <https://schema.org/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix snorql: <https://w3id.org/snorql/ns#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# Terms that Snorql-UI example files use on top of SIB's sparql-examples format
+# (https://github.com/sib-swiss/sparql-examples). Everything else in an example
+# file comes from Dublin Core, schema.org, SHACL and OWL; see tools/examples/README.md.
+
+<https://w3id.org/snorql/ns#> a owl:Ontology ;
+    rdfs:label "Snorql example vocabulary"@en ;
+    rdfs:comment "Extra terms for SPARQL example files shown in Snorql-UI: collections, parameters whose values the user can change, former paths, and expected results."@en ;
+    dcterms:license <https://creativecommons.org/publicdomain/zero/1.0/> ;
+    owl:versionInfo "1.0.0" ;
+    rdfs:seeAlso <https://github.com/wikipathways/Snorql-UI/blob/master/tools/examples/README.md> .
+
+# ---- Collections ----
+
+snorql:ExampleCollection a owl:Class ;
+    rdfs:label "Example collection"@en ;
+    rdfs:comment "A set of SPARQL examples published together from one repository. Its void:uriSpace is the IRI base of the examples, and an example's IRI is that base followed by its dcterms:identifier."@en .
+
+snorql:identifierPrefix a owl:DatatypeProperty ;
+    rdfs:label "identifier prefix"@en ;
+    rdfs:comment "Letters that every example identifier in the collection starts with, followed by a number of at least three digits (e.g. WPQ for WPQ036)."@en ;
+    rdfs:domain snorql:ExampleCollection ;
+    rdfs:range xsd:string .
+
+snorql:alias a owl:DatatypeProperty ;
+    rdfs:label "alias"@en ;
+    rdfs:comment "A path, relative to the repository root, that identified this example before it had an identifier (for example its old .rq file). Old links that use the path keep working."@en ;
+    rdfs:domain sh:SPARQLExecutable ;
+    rdfs:range xsd:string .
+
+# ---- Parameters ----
+# A parameter is a sh:Parameter (SHACL Advanced Features) on the example, via
+# sh:parameter. The local name of its sh:path IRI, in the namespace
+# https://w3id.org/snorql/param#, is both the parameter name used in links and
+# the name of the query variable it binds. The query binds that variable to the
+# default in a single VALUES block, so the query runs as it is; the user
+# interface replaces the value in that block.
+
+snorql:variable a owl:DatatypeProperty ;
+    rdfs:label "variable"@en ;
+    rdfs:comment "Name (without ?) of the query variable that the parameter binds, when it differs from the parameter name."@en ;
+    rdfs:domain sh:Parameter ;
+    rdfs:range xsd:string .
+
+snorql:valueTemplate a owl:DatatypeProperty ;
+    rdfs:label "value template"@en ;
+    rdfs:comment "For a parameter whose value is an IRI: the IRI with {value} where the (percent-encoded) user value goes, e.g. \"https://identifiers.org/wikipathways/{value}\". Without a template an IRI parameter takes a full IRI."@en ;
+    rdfs:domain sh:Parameter ;
+    rdfs:range xsd:string .
+
+snorql:autocomplete a owl:DatatypeProperty ;
+    rdfs:label "autocomplete"@en ;
+    rdfs:comment "Name of an autocomplete list configured in the Snorql-UI instance (autocompleteTypes in config.js) that suggests values for the parameter."@en ;
+    rdfs:domain sh:Parameter ;
+    rdfs:range xsd:string .
+
+snorql:option a owl:ObjectProperty ;
+    rdfs:label "option"@en ;
+    rdfs:comment "One allowed value of a parameter that takes a value from a fixed list: a node with rdf:value (the value), rdfs:label (what the user sees) and optionally sh:order."@en ;
+    rdfs:domain sh:Parameter .
+
+# ---- Expectations ----
+
+snorql:expect a owl:ObjectProperty ;
+    rdfs:label "expect"@en ;
+    rdfs:comment "What running the example with its default values should give, checked by a scheduled test against the live endpoint."@en ;
+    rdfs:domain sh:SPARQLExecutable ;
+    rdfs:range snorql:Expectation .
+
+snorql:Expectation a owl:Class ;
+    rdfs:label "Expectation"@en .
+
+snorql:minResults a owl:DatatypeProperty ;
+    rdfs:label "minimum results"@en ;
+    rdfs:comment "Least number of results (rows, or triples for CONSTRUCT and DESCRIBE; 1 for an ASK that returns true)."@en ;
+    rdfs:domain snorql:Expectation ;
+    rdfs:range xsd:nonNegativeInteger .
+
+snorql:maxResults a owl:DatatypeProperty ;
+    rdfs:label "maximum results"@en ;
+    rdfs:domain snorql:Expectation ;
+    rdfs:range xsd:nonNegativeInteger .
+
+snorql:testedAgainst a owl:DatatypeProperty ;
+    rdfs:label "tested against"@en ;
+    rdfs:comment "Release or date of the data the example was last checked against by hand."@en ;
+    rdfs:domain sh:SPARQLExecutable .
