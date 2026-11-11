@@ -955,8 +955,27 @@ function loadExampleFromUrl() {
         load(ref || examplesBranch());
         return;
     }
+    var checkWithGitHub = function() {
+        checkPinnedRefWithGitHub(repoPath, ref, name, load);
+    };
     // GitHub also serves fork and pull-request commits under this repository's
-    // path, so only load a ref that the configured branch contains.
+    // path, so only load a ref that the configured branch contains. Check the
+    // repository's commit index first; ask GitHub's compare API when it has no
+    // index or the index does not list the ref (for example a very recent commit).
+    jQuery.ajax({
+        url: DeepLinks.commitIndexUrl(repoPath),
+        dataType: 'json'
+    }).done(function(index) {
+        var commit = DeepLinks.commitFromIndex(index, ref, examplesBranch());
+        if (commit) {
+            load(commit);
+        } else {
+            checkWithGitHub();
+        }
+    }).fail(checkWithGitHub);
+}
+
+function checkPinnedRefWithGitHub(repoPath, ref, name, load) {
     jQuery.ajax({
         url: DeepLinks.compareUrl(repoPath, ref, examplesBranch()),
         dataType: 'json'

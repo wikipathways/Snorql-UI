@@ -11,8 +11,10 @@
  * Without ref the configured examples branch is used, so the link always shows
  * the current version of the query; with ref it shows that version.
  *
- * A ref is only used after GitHub confirms that the configured branch contains
- * it (compare API: status "ahead" or "identical"). raw.githubusercontent.com also
+ * A ref is only used once it is known to be on the configured branch: from the
+ * repository's commit index (commits.json on its commit-index branch) when it
+ * has one, otherwise from GitHub's compare API (status "ahead" or "identical",
+ * 60 calls an hour per IP without a login). raw.githubusercontent.com also
  * serves commits from forks and pull requests under the repository's own path,
  * so without this check a link could load a file that was never published.
  *
@@ -119,6 +121,39 @@
         return typeof sha === 'string' && /^[0-9a-f]{40}$/.test(sha) ? sha : null;
     }
 
+    // The examples repository can publish commits.json on a commit-index branch:
+    //   { "branch": "master", "commits": [<full hashes>], "tags": { name: hash } }
+    // listing every commit on the branch and the tags on it. Checking a ref against
+    // it needs no GitHub API call. It is read from the repository's own branch on
+    // raw.githubusercontent.com, which a fork cannot change.
+    var COMMIT_INDEX_BRANCH = 'commit-index';
+    var COMMIT_INDEX_FILE = 'commits.json';
+
+    function commitIndexUrl(repoPath) {
+        return rawUrl(repoPath, COMMIT_INDEX_BRANCH, COMMIT_INDEX_FILE);
+    }
+
+    // Full commit hash for ref when the index shows that branch contains it: a
+    // commit hash (7 to 40 characters, matching exactly one commit) or a tag name.
+    // Returns null when the index cannot answer; the caller then asks GitHub.
+    function commitFromIndex(index, ref, branch) {
+        if (!index || index.branch !== branch || !Array.isArray(index.commits)) return null;
+        var commits = index.commits.filter(function (c) {
+            return typeof c === 'string' && /^[0-9a-f]{40}$/.test(c);
+        });
+        if (/^[0-9a-fA-F]{7,40}$/.test(ref)) {
+            var prefix = ref.toLowerCase();
+            var matches = commits.filter(function (c) { return c.indexOf(prefix) === 0; });
+            if (matches.length === 1) return matches[0];
+        }
+        var tags = index.tags;
+        if (tags && typeof tags === 'object' && Object.prototype.hasOwnProperty.call(tags, ref)) {
+            var sha = tags[ref];
+            if (commits.indexOf(sha) !== -1) return sha;
+        }
+        return null;
+    }
+
     // Path inside the repository for a raw GitHub URL of the examples tree
     // (fallback for trees cached before nodes carried their path).
     function pathFromRawHref(href) {
@@ -184,6 +219,8 @@
         compareUrl: compareUrl,
         refIsPublished: refIsPublished,
         publishedCommit: publishedCommit,
+        commitIndexUrl: commitIndexUrl,
+        commitFromIndex: commitFromIndex,
         isLocalRepo: isLocalRepo,
         pathFromRawHref: pathFromRawHref,
         acceptedValues: acceptedValues,
