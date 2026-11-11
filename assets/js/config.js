@@ -27,6 +27,8 @@ window.SNORQL_CONFIG = {
     //     { label: "Credits",  url: "https://example.org/about", authors: "Jane Doe et al." }
     //   ],
     linkouts: [],
+    // WikiPathways label for the endpoint field; index.html keeps the generic default.
+    endpointLabel: "SPARQL Endpoint:",
     // Optional branding (applied by assets/js/branding.js). Leave a key out to
     // keep the markup in index.html. Text is set as plain text and URLs are
     // allowlisted; there is no raw-HTML option. Colours go in assets/css/theme.css.
