@@ -239,3 +239,41 @@ describe('publishedCommit and isLocalRepo', () => {
     expect(DL.repoPathFromUrl('http://localhost.evil.com/api/repos/o/r')).toBeNull();
   });
 });
+
+describe('commit index', () => {
+  const A = 'd4ceb968c9cd9ba02d82e2716195397f57019baf';
+  const B = 'd4cf000000000000000000000000000000000001';
+  const C = '1234567890abcdef1234567890abcdef12345678';
+  const index = { branch: 'master', commits: [A, B, C], tags: { 'v1.0': C, stray: 'ffffffffffffffffffffffffffffffffffffffff' } };
+
+  test('commitIndexUrl reads commits.json from the commit-index branch', () => {
+    expect(DL.commitIndexUrl('wikipathways/SPARQLQueries'))
+      .toBe('https://raw.githubusercontent.com/wikipathways/SPARQLQueries/commit-index/commits.json');
+  });
+
+  test('a short or full hash that matches one commit resolves to the full hash', () => {
+    expect(DL.commitFromIndex(index, 'd4ceb96', 'master')).toBe(A);
+    expect(DL.commitFromIndex(index, A, 'master')).toBe(A);
+    expect(DL.commitFromIndex(index, 'D4CEB96', 'master')).toBe(A);
+  });
+
+  test('an ambiguous prefix, an unknown hash or a too-short hash gives null', () => {
+    expect(DL.commitFromIndex(index, 'd4c', 'master')).toBeNull();
+    expect(DL.commitFromIndex(index, 'd4ce', 'master')).toBeNull();
+    expect(DL.commitFromIndex({ ...index, commits: [A, 'd4ceb96000000000000000000000000000000000'] }, 'd4ceb96', 'master')).toBeNull();
+    expect(DL.commitFromIndex(index, 'abcdef1', 'master')).toBeNull();
+  });
+
+  test('a tag resolves only when its commit is listed', () => {
+    expect(DL.commitFromIndex(index, 'v1.0', 'master')).toBe(C);
+    expect(DL.commitFromIndex(index, 'stray', 'master')).toBeNull();
+    expect(DL.commitFromIndex(index, 'toString', 'master')).toBeNull();
+  });
+
+  test('an index for another branch, or a malformed one, gives null', () => {
+    expect(DL.commitFromIndex(index, 'd4ceb96', 'main')).toBeNull();
+    expect(DL.commitFromIndex(null, 'd4ceb96', 'master')).toBeNull();
+    expect(DL.commitFromIndex({ branch: 'master', commits: 'd4ceb96' }, 'd4ceb96', 'master')).toBeNull();
+    expect(DL.commitFromIndex({ branch: 'master', commits: ['d4ceb96'] }, 'd4ceb96', 'master')).toBeNull();
+  });
+});
