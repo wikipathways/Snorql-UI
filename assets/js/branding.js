@@ -11,6 +11,7 @@
  *   metaDescription: "..."                            <meta name="description">
  *   metaAuthor:      "..."                            <meta name="author">
  *   footer:          [ item, ... ]                    replaces the footer line
+ *                  | [ [ item, ... ], [ item, ... ] ]  several lines
  *       item = "plain text"
  *            | { label, url, title? }                 link
  *            | { image, url?, alt?, height? }         image, optionally linked
@@ -90,15 +91,21 @@
         return a;
     }
 
+    // A footer is one line of items, or a list of lines (arrays of items), each in its
+    // own <p class="footer-row">.
     function renderFooter(items, container) {
         if (!Array.isArray(items) || !container) return;
-        var p = document.createElement('p');
-        for (var i = 0; i < items.length; i++) {
-            var node = buildFooterItem(items[i]);
-            if (node) p.appendChild(node);
-        }
+        var rows = items.length && items.every(Array.isArray) ? items : [items];
         while (container.firstChild) container.removeChild(container.firstChild);
-        container.appendChild(p);
+        for (var r = 0; r < rows.length; r++) {
+            var p = document.createElement('p');
+            if (rows.length > 1) p.className = 'footer-row';
+            for (var i = 0; i < rows[r].length; i++) {
+                var node = buildFooterItem(rows[r][i]);
+                if (node) p.appendChild(node);
+            }
+            container.appendChild(p);
+        }
     }
 
     function setMeta(name, value) {

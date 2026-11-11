@@ -219,6 +219,8 @@ Set these in `config.js` (applied by `assets/js/branding.js`); see the commented
 there. The footer is a list of plain-text strings, `{ label, url, title }` links and
 `{ image, url, alt, height }` images. Text is never parsed as HTML and URLs are limited to
 http(s)/mailto, so there is no way (and no need) to inject raw markup.
+For a footer of several lines, give a list of lists: each inner list is one line, in its own
+`<p class="footer-row">` that `theme.css` can style.
 
 ### Colours and layout
 

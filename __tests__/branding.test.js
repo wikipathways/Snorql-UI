@@ -106,6 +106,28 @@ describe('footer', () => {
     expect(p.textContent).toBe('Click');
   });
 
+  test('a list of lists renders one row per list', () => {
+    Branding.applyBranding({
+      footer: [
+        [{ image: 'assets/images/zenodo.svg', url: 'https://zenodo.org', alt: 'Zenodo', title: 'On Zenodo' }, ' Please cite: X'],
+        ['Small print ', { label: 'licence', url: 'https://example.org/licence' }]
+      ]
+    });
+    const rows = document.querySelectorAll('#footer .container-fluid p');
+    expect(rows.length).toBe(2);
+    expect(rows[0].className).toBe('footer-row');
+    expect(rows[0].querySelector('a').getAttribute('title')).toBe('On Zenodo');
+    expect(rows[0].textContent).toBe(' Please cite: X');
+    expect(rows[1].textContent).toBe('Small print licence');
+  });
+
+  test('a single line has no row class', () => {
+    Branding.applyBranding({ footer: ['one line'] });
+    const rows = document.querySelectorAll('#footer .container-fluid p');
+    expect(rows.length).toBe(1);
+    expect(rows[0].className).toBe('');
+  });
+
   test('an image with a bad src is skipped; junk items are ignored', () => {
     Branding.applyBranding({ footer: [{ image: 'javascript:x', alt: 'bad' }, null, 42, { nothing: true }, 'end'] });
     const p = document.querySelector('#footer p');
