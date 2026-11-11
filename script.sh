@@ -4,7 +4,7 @@
 # 4-space indent, so nested keys with the same name are left alone. Keep each of these keys
 # on a single line in config.js.
 
-HTDOCS="/usr/local/apache2/htdocs"
+HTDOCS="${SNORQL_HTDOCS:-/usr/local/apache2/htdocs}"
 CONFIG_FILE="$HTDOCS/assets/js/config.js"
 
 # Escape a value for use inside a double-quoted JS string, then for the sed replacement.
@@ -104,4 +104,22 @@ fi
 # Set-but-empty disables link shortening, so test for "is set" rather than "non-empty".
 if [[ -v SNORQL_BITLY_TOKEN ]]; then
   set_string bitlyToken "${SNORQL_BITLY_TOKEN}"
+fi
+
+# Optional extra <head> content for an instance: if htdocs/head-extra.html exists, it is
+# inserted before </head> of index.html, for example a schema.org JSON-LD block, which FAIR
+# assessment tools and search engines read from the static page. The file is inserted as it
+# is, so it must come from the instance image, never from user input. The marker comment
+# keeps a restarted container from inserting it twice.
+HEAD_EXTRA="$HTDOCS/head-extra.html"
+if [[ -f "$HEAD_EXTRA" ]] && ! grep -q 'snorql:head-extra' "$HTDOCS/index.html"; then
+  awk -v extra="$HEAD_EXTRA" '
+    /<\/head>/ && !done {
+      print "    <!-- snorql:head-extra -->"
+      while ((getline line < extra) > 0) print line
+      done = 1
+    }
+    { print }
+  ' "$HTDOCS/index.html" > "$HTDOCS/index.html.tmp" && cat "$HTDOCS/index.html.tmp" > "$HTDOCS/index.html"
+  rm -f "$HTDOCS/index.html.tmp"
 fi
