@@ -672,107 +672,100 @@ function cleanFilename(filename) {
 }
 
 var CACHE_KEY_PREFIX = 'snorql_examples_';
+// The examples tree is kept for an hour in localStorage, so opening more tabs or
+// links does not list the repository again; GitHub allows 60 API calls an hour per IP.
+var CACHE_TTL_MS = 60 * 60 * 1000;
 
 function getCachedExamples(repoUrl) {
     try {
-        var data = sessionStorage.getItem(CACHE_KEY_PREFIX + repoUrl);
-        return data ? JSON.parse(data) : null;
-    } catch (e) { return null; }
+        var data = JSON.parse(localStorage.getItem(CACHE_KEY_PREFIX + repoUrl));
+        if (data && data.tree && Date.now() - data.time < CACHE_TTL_MS) return data.tree;
+    } catch (e) { /* no storage or bad entry */ }
+    return null;
 }
 
 function setCachedExamples(repoUrl, treeData) {
     try {
-        sessionStorage.setItem(CACHE_KEY_PREFIX + repoUrl, JSON.stringify(treeData));
+        localStorage.setItem(CACHE_KEY_PREFIX + repoUrl, JSON.stringify({ time: Date.now(), tree: treeData }));
     } catch (e) { /* silently continue */ }
 }
 
-function mainAjax(link, repo) {
+// Turn a list of file paths into the folder tree the example panel shows.
+function buildExampleTree(paths, repo) {
     var tree = [];
+    for (var i = 0; i < paths.length; i++) {
+        var path = paths[i];
+        if (path.slice(path.length - 3) != ".rq") continue;
+        var segments = path.split("/");
+        // Skip anything that is not a plain repository path, such as ".." segments.
+        if (segments.some(function(s) { return s === "" || s === "." || s === ".."; })) continue;
+        var nodes = tree;
+        for (var j = 0; j < segments.length - 1; j++) {
+            var index = getIndexFromTree(segments[j], nodes);
+            if (index == null) {
+                nodes.push({ text: segments[j], nodes: [], href: "#" });
+                index = nodes.length - 1;
+            }
+            nodes = nodes[index].nodes;
+        }
+        nodes.push({
+            text: segments[segments.length - 1],
+            originalFilename: segments[segments.length - 1],
+            href: repo.includes("http://localhost")
+                ? repo.replace("/api/repos/", "/raw/") + "/" + path
+                : "https://raw.githubusercontent.com/" + repo + "/" + examplesBranch() + "/" + path,
+            icon: 'glyphicon glyphicon-file',
+            path: path
+        });
+    }
+    return tree;
+}
+
+// jsDelivr lists a GitHub repository without GitHub's API rate limit (60 calls an
+// hour per IP). Its view of a branch can lag by some hours, which only delays new or
+// renamed files: the queries themselves still come from raw.githubusercontent.com.
+function jsDelivrListUrl(repo) {
+    return "https://data.jsdelivr.com/v1/packages/gh/" + repo + "@" + encodeURIComponent(examplesBranch()) + "?structure=flat";
+}
+
+function pathsFromJsDelivr(listing) {
+    return (listing && listing.files || []).map(function(file) {
+        return String(file.name).replace(/^\//, "");
+    });
+}
+
+// List the example files: through jsDelivr first, and through GitHub's API when
+// jsDelivr fails or has no .rq files. A local repository goes to its own API directly.
+function mainAjax(link, repo) {
     var deferred = $.Deferred();
 
+    var fromGitHub = function() {
+        jQuery.ajax({
+            url: link,
+            dataType: 'json'
+        }).done(function(results) {
+            deferred.resolve(buildExampleTree(results["tree"].map(function(item) { return item["path"]; }), repo));
+        }).fail(function(xhr) {
+            deferred.reject(xhr);
+        });
+    };
+
+    if (repo.includes("http://localhost")) {
+        fromGitHub();
+        return deferred.promise();
+    }
+
     jQuery.ajax({
-        url: link,
+        url: jsDelivrListUrl(repo),
         dataType: 'json'
-    }).done(function(results) {
-        results = results["tree"];
-
-        for (var i = 0; i < results.length; i++) {
-            var segments = results[i]["path"].split("/");
-            var path = results[i]["path"];
-
-            if (path.slice(path.length - 2) == "rq") {
-                var node = new Object();
-
-                if (segments.length == 1) {
-                    node.text = segments[0];
-                    node.originalFilename = segments[0];
-                    node.href = repo.includes("http://localhost")
-                        ? repo.replace("/api/repos/", "/raw/") + "/" + path
-                        : "https://raw.githubusercontent.com/" + repo + "/" + examplesBranch() + "/" + path;
-                    node.icon = 'glyphicon glyphicon-file';
-                    node.path = path;
-                    tree.push(node);
-
-                } else if (segments.length == 2) {
-                    var index = getIndexFromTree(segments[0], tree);
-
-                    if (index == null) {
-                        var folder_node = new Object();
-                        folder_node.text = segments[0];
-                        folder_node.nodes = new Array();
-                        folder_node.href = "#";
-                        tree.push(folder_node);
-                        index = getIndexFromTree(segments[0], tree);
-                    }
-
-                    node.text = segments[1];
-                    node.originalFilename = segments[1];
-                    node.href = repo.includes("http://localhost")
-                        ? repo.replace("/api/repos/", "/raw/") + "/" + path
-                        : "https://raw.githubusercontent.com/" + repo + "/" + examplesBranch() + "/" + path;
-                    node.icon = 'glyphicon glyphicon-file';
-                    node.path = path;
-                    tree[index].nodes.push(node);
-
-                } else if (segments.length == 3) {
-                    var index = getIndexFromTree(segments[0], tree);
-
-                    if (index == null) {
-                        var folder_node = new Object();
-                        folder_node.text = segments[0];
-                        folder_node.nodes = new Array();
-                        folder_node.href = "#";
-                        tree.push(folder_node);
-                        index = getIndexFromTree(segments[0], tree);
-                    }
-
-                    var index2 = getIndexFromTree(segments[1], tree[index].nodes);
-
-                    if (index2 == null) {
-                        var folder_node = new Object();
-                        folder_node.text = segments[1];
-                        folder_node.nodes = new Array();
-                        folder_node.href = "#";
-                        tree[index].nodes.push(folder_node);
-                        index2 = getIndexFromTree(segments[1], tree[index].nodes);
-                    }
-
-                    node.text = segments[2];
-                    node.originalFilename = segments[2];
-                    node.href = repo.includes("http://localhost")
-                        ? repo.replace("/api/repos/", "/raw/") + "/" + path
-                        : "https://raw.githubusercontent.com/" + repo + "/" + examplesBranch() + "/" + path;
-                    node.icon = 'glyphicon glyphicon-file';
-                    node.path = path;
-                    tree[index].nodes[index2].nodes.push(node);
-                }
-            }
+    }).done(function(listing) {
+        var tree = buildExampleTree(pathsFromJsDelivr(listing), repo);
+        if (tree.length) {
+            deferred.resolve(tree);
+        } else {
+            fromGitHub();
         }
-
-        deferred.resolve(tree);
-    }).fail(function(xhr) {
-        deferred.reject(xhr);
-    });
+    }).fail(fromGitHub);
 
     return deferred.promise();
 }
