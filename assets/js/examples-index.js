@@ -69,11 +69,12 @@
 
     function leaf(entry) {
         return {
-            text: entry.label,
+            // bootstrap-treeview inserts text and tags as HTML.
+            text: escapeHtml(entry.label),
             exampleId: entry.id,
             description: entry.description || '',
             searchText: searchText(entry),
-            tags: [entry.id],
+            tags: [escapeHtml(entry.id)],
             icon: 'glyphicon glyphicon-file'
         };
     }
@@ -86,7 +87,7 @@
         var nodes = {};
         var top = [];
         (index.categories || []).forEach(function (c) {
-            nodes[c.iri] = { text: c.label, nodes: [], href: '#', categoryIri: c.iri, selectable: false };
+            nodes[c.iri] = { text: escapeHtml(c.label), nodes: [], href: '#', categoryIri: c.iri, selectable: false };
         });
         (index.categories || []).forEach(function (c) {
             var parent = c.parent && nodes[c.parent];

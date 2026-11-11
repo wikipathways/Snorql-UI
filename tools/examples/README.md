@@ -122,8 +122,10 @@ jobs:
       contents: write
 ```
 
-It runs `check`, `versions` (on pull requests) and SIB's sparql-examples-utils test, and with
-`publish: true` builds the index and force-pushes it to the `examples-index` branch.
+It runs `check`, `versions` (on pull requests) and SIB's sparql-examples-utils test (the jar is
+checked against its sha256) in a read-only job. With `publish: true` it builds the index from the
+default branch, whichever ref triggered the run, and force-pushes it to the `examples-index`
+branch; a tag push then only adds the new release to `history.json`.
 
 ## The published index (schema 1)
 

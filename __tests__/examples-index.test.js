@@ -308,3 +308,14 @@ describe('metadataHtml', () => {
     expect(html).toContain('the current version is 2.0.0');
   });
 });
+
+describe('tree text is escaped (bootstrap-treeview renders it as HTML)', () => {
+  test('example titles, identifiers and category labels', () => {
+    const tree = EI.buildTree(index([example({ label: '<img src=x onerror=alert(1)>' })], [
+      { iri: CAT + 'General', label: '<b>General</b>', parent: null }
+    ]));
+    expect(tree[0].text).toBe('&lt;b&gt;General&lt;/b&gt;');
+    expect(tree[0].nodes[0].text).toBe('&lt;img src=x onerror=alert(1)&gt;');
+    expect(tree[0].nodes[0].tags).toEqual(['WPQ001']);
+  });
+});

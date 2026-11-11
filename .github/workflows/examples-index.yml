@@ -14,15 +14,17 @@ name: Examples index
 #
 # On every run it validates the examples (and, on pull requests, checks that
 # changed examples got a higher version). With publish: true it then builds the
-# index that Snorql-UI reads and force-pushes it to the examples-index branch.
+# index that Snorql-UI reads from the repository's default branch, whatever ref
+# triggered the run (so a tag push records the new release instead of rolling
+# the index back to the tagged commit), and force-pushes it to examples-index.
 
 on:
   workflow_call:
     inputs:
       tools-ref:
-        description: Snorql-UI ref to take tools/examples from (use the same ref as in `uses:`)
+        description: Snorql-UI ref to take tools/examples from (use the same ref as in `uses:`, e.g. v1.4.0)
         type: string
-        default: master
+        required: true
       publish:
         description: Build the index and push it to the examples-index branch
         type: boolean
@@ -36,19 +38,28 @@ on:
         type: string
         default: Examples
 
+env:
+  SIB_JAR_URL: https://github.com/sib-swiss/sparql-examples-utils/releases/download/v2.0.22/sparql-examples-utils-2.0.22-uber.jar
+  SIB_JAR_SHA256: 5b7fda7136e3ae9cc73acb41a143581ff50284412da4c8a88a0807ee81f503a9
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    # Read only: this job parses pull-request content and runs a downloaded jar.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/checkout@v4
         with:
           repository: wikipathways/Snorql-UI
           ref: ${{ inputs.tools-ref }}
           path: .snorql-tools
           sparse-checkout: tools/examples
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -70,7 +81,8 @@ jobs:
         if: inputs.sib-check
         run: |
           python .snorql-tools/tools/examples/snorql_examples.py stage-sib --out "$RUNNER_TEMP/sib/examples" --project "${{ inputs.sib-project }}"
-          wget -q "https://github.com/sib-swiss/sparql-examples-utils/releases/download/v2.0.22/sparql-examples-utils-2.0.22-uber.jar" -O "$RUNNER_TEMP/sparql-examples-utils.jar"
+          wget -q "$SIB_JAR_URL" -O "$RUNNER_TEMP/sparql-examples-utils.jar"
+          echo "$SIB_JAR_SHA256  $RUNNER_TEMP/sparql-examples-utils.jar" | sha256sum -c -
           java -jar "$RUNNER_TEMP/sparql-examples-utils.jar" test --input-directory="$RUNNER_TEMP/sib/examples"
 
   publish:
@@ -85,6 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
       - uses: actions/checkout@v4
         with:
@@ -92,6 +105,7 @@ jobs:
           ref: ${{ inputs.tools-ref }}
           path: .snorql-tools
           sparse-checkout: tools/examples
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -99,6 +113,7 @@ jobs:
         run: |
           pip install -r .snorql-tools/tools/examples/requirements.txt
           git fetch --tags --force origin
+          echo "SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           python .snorql-tools/tools/examples/snorql_examples.py build --out "$RUNNER_TEMP/index"
       - name: Replace the examples-index branch
         run: |
@@ -109,5 +124,5 @@ jobs:
           git rm -rfq .
           cp -r "$RUNNER_TEMP/index/." .
           git add -A
-          git commit -qm "Examples index for ${GITHUB_SHA::12}"
+          git commit -qm "Examples index for ${SOURCE_SHA::12}"
           git push --force origin examples-index
