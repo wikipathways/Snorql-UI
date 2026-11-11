@@ -44,3 +44,20 @@ jobs:
           name: coverage-report
           path: coverage/
           retention-days: 7
+
+  example-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r tools/examples/requirements.txt pytest
+
+      - name: Test the example tools
+        run: python -m pytest tools/examples

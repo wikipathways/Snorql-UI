@@ -1,0 +1,113 @@
+name: Examples index
+
+# Reusable workflow for a repository of SPARQL examples (.ttl files, see
+# tools/examples/README.md). Call it from the examples repository:
+#
+#   jobs:
+#     examples:
+#       uses: wikipathways/Snorql-UI/.github/workflows/examples-index.yml@v1.4.0
+#       with:
+#         tools-ref: v1.4.0
+#         publish: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+#       permissions:
+#         contents: write
+#
+# On every run it validates the examples (and, on pull requests, checks that
+# changed examples got a higher version). With publish: true it then builds the
+# index that Snorql-UI reads and force-pushes it to the examples-index branch.
+
+on:
+  workflow_call:
+    inputs:
+      tools-ref:
+        description: Snorql-UI ref to take tools/examples from (use the same ref as in `uses:`)
+        type: string
+        default: master
+      publish:
+        description: Build the index and push it to the examples-index branch
+        type: boolean
+        default: false
+      sib-check:
+        description: Also run SIB's sparql-examples-utils test (Jena, RDF4J and Blazegraph parsers, SHACL)
+        type: boolean
+        default: true
+      sib-project:
+        description: Project folder name for the SIB test
+        type: string
+        default: Examples
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          repository: wikipathways/Snorql-UI
+          ref: ${{ inputs.tools-ref }}
+          path: .snorql-tools
+          sparse-checkout: tools/examples
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: pip install -r .snorql-tools/tools/examples/requirements.txt
+      - name: Check the examples
+        run: python .snorql-tools/tools/examples/snorql_examples.py check
+      - name: Check versions against the base branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          python .snorql-tools/tools/examples/snorql_examples.py versions --base "origin/${{ github.base_ref }}"
+      - uses: actions/setup-java@v4
+        if: inputs.sib-check
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: SIB sparql-examples-utils test
+        if: inputs.sib-check
+        run: |
+          python .snorql-tools/tools/examples/snorql_examples.py stage-sib --out "$RUNNER_TEMP/sib/examples" --project "${{ inputs.sib-project }}"
+          wget -q "https://github.com/sib-swiss/sparql-examples-utils/releases/download/v2.0.22/sparql-examples-utils-2.0.22-uber.jar" -O "$RUNNER_TEMP/sparql-examples-utils.jar"
+          java -jar "$RUNNER_TEMP/sparql-examples-utils.jar" test --input-directory="$RUNNER_TEMP/sib/examples"
+
+  publish:
+    needs: check
+    if: inputs.publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: examples-index
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          repository: wikipathways/Snorql-UI
+          ref: ${{ inputs.tools-ref }}
+          path: .snorql-tools
+          sparse-checkout: tools/examples
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build the index
+        run: |
+          pip install -r .snorql-tools/tools/examples/requirements.txt
+          git fetch --tags --force origin
+          python .snorql-tools/tools/examples/snorql_examples.py build --out "$RUNNER_TEMP/index"
+      - name: Replace the examples-index branch
+        run: |
+          git config user.name 'GitHub Action'
+          git config user.email 'action@github.com'
+          rm -rf .snorql-tools
+          git checkout --orphan examples-index
+          git rm -rfq .
+          cp -r "$RUNNER_TEMP/index/." .
+          git add -A
+          git commit -qm "Examples index for ${GITHUB_SHA::12}"
+          git push --force origin examples-index

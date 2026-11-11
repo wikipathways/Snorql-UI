@@ -1,0 +1,74 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix schema: <https://schema.org/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix snorql: <https://w3id.org/snorql/ns#> .
+@prefix shapes: <https://w3id.org/snorql/shapes#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# What a Snorql example needs on top of SIB's spex.shacl (which asks for a query,
+# an rdfs:comment and a schema:target). snorql_examples.py checks the rest:
+# identifier format and IRI, VALUES blocks, SERVICE calls, categories, names.
+
+shapes:Example a sh:NodeShape ;
+    sh:targetClass sh:SPARQLExecutable ;
+    sh:property [
+        sh:path dcterms:identifier ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ;
+        sh:message "An example needs one dcterms:identifier, e.g. \"WPQ036\"."
+    ] , [
+        sh:path rdfs:label ; sh:minCount 1 ; sh:maxCount 1 ; sh:or ( [ sh:datatype rdf:langString ] [ sh:datatype xsd:string ] ) ;
+        sh:message "An example needs one rdfs:label (its title)."
+    ] , [
+        sh:path rdfs:comment ; sh:minCount 1 ;
+        sh:message "An example needs an rdfs:comment (its description)."
+    ] , [
+        sh:path schema:version ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" ;
+        sh:message "An example needs one schema:version, MAJOR.MINOR.PATCH."
+    ] , [
+        sh:path dcterms:created ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:date ;
+        sh:message "An example needs one dcterms:created date."
+    ] , [
+        sh:path dcterms:creator ; sh:minCount 1 ; sh:nodeKind sh:IRI ;
+        sh:message "An example needs at least one dcterms:creator, an IRI (ORCID if there is one)."
+    ] , [
+        sh:path dcterms:contributor ; sh:nodeKind sh:IRI
+    ] , [
+        sh:path dcterms:license ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ;
+        sh:message "An example needs one dcterms:license IRI."
+    ] , [
+        sh:path dcterms:subject ; sh:minCount 1 ; sh:nodeKind sh:IRI ;
+        sh:message "An example needs a dcterms:subject: a category from categories.ttl."
+    ] , [
+        sh:path schema:target ; sh:minCount 1 ; sh:nodeKind sh:IRI
+    ] , [
+        sh:path sh:parameter ; sh:node shapes:Parameter
+    ] , [
+        sh:path snorql:alias ; sh:datatype xsd:string
+    ] .
+
+shapes:Parameter a sh:NodeShape ;
+    sh:property [
+        sh:path sh:path ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ;
+        sh:pattern "^https://w3id\\.org/snorql/param#[A-Za-z_][A-Za-z0-9_]*$" ;
+        sh:message "A parameter's sh:path is param:<name>, in https://w3id.org/snorql/param#."
+    ] , [
+        sh:path sh:name ; sh:minCount 1 ; sh:maxCount 1 ;
+        sh:message "A parameter needs one sh:name (its label)."
+    ] , [
+        sh:path sh:defaultValue ; sh:minCount 1 ; sh:maxCount 1 ;
+        sh:message "A parameter needs one sh:defaultValue."
+    ] , [
+        sh:path sh:order ; sh:maxCount 1 ; sh:datatype xsd:integer
+    ] , [
+        sh:path snorql:valueTemplate ; sh:maxCount 1 ; sh:pattern "\\{value\\}"
+    ] , [
+        sh:path snorql:option ; sh:node shapes:Option
+    ] .
+
+shapes:Option a sh:NodeShape ;
+    sh:property [
+        sh:path rdf:value ; sh:minCount 1 ; sh:maxCount 1
+    ] , [
+        sh:path rdfs:label ; sh:maxCount 1
+    ] .
