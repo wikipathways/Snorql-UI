@@ -422,6 +422,43 @@ footer p{
     opacity: 0.75;
 }
 
+/* Example tree: a long title wraps beside its identifier instead of pushing the
+   identifier onto a line of its own, and each level indents 12px instead of 20px. */
+#examples .list-group-item,
+#examples-fs .list-group-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+#examples .list-group-item .indent,
+#examples-fs .list-group-item .indent {
+    flex: none;
+    width: 6px;
+    margin: 0;
+}
+#examples .list-group-item .icon,
+#examples-fs .list-group-item .icon {
+    flex: none;
+    margin-right: 0;
+}
+/* The folder glyph is wider than its 12px box. */
+#examples .list-group-item .expand-icon,
+#examples-fs .list-group-item .expand-icon {
+    margin-right: 4px;
+}
+/* Categories have an empty node icon; keep it from taking room in the row. */
+#examples .list-group-item .node-icon:not(.glyphicon),
+#examples-fs .list-group-item .node-icon:not(.glyphicon) {
+    display: none;
+}
+#examples .list-group-item .badge,
+#examples-fs .list-group-item .badge {
+    float: none;
+    flex: none;
+    align-self: flex-start;
+    margin-left: auto;
+}
+
 /* Navbar: a fixed-height bar on wide screens. On narrow screens Bootstrap collapses #navbar
    (linkouts and the endpoint field) behind the toggle button, and the bar grows to fit it. */
 #navbar-container {
