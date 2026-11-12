@@ -276,6 +276,29 @@ describe('versions', () => {
   });
 });
 
+describe('optional parameters', () => {
+  const param = { name: 'aop_id', variable: 'aop', label: 'AOP', kind: 'iri', valueTemplate: 'https://identifiers.org/aop/{value}', default: '', optional: true };
+  const query = 'SELECT * WHERE { VALUES ?aop { UNDEF } ?aop ?p ?o }';
+
+  test('an empty field leaves the variable unbound', () => {
+    const [p] = EI.toParams({ params: [param] });
+    expect(p.optional).toBe(true);
+    expect(p.defaultValue).toBe('');
+    expect(EI.substituteValues(query, [p], () => '')).toBe('SELECT * WHERE { VALUES ?aop { UNDEF } ?aop ?p ?o }');
+  });
+
+  test('a value is bound as usual', () => {
+    const [p] = EI.toParams({ params: [param] });
+    expect(EI.substituteValues(query, [p], () => '12')).toBe('SELECT * WHERE { VALUES ?aop { <https://identifiers.org/aop/12> } ?aop ?p ?o }');
+  });
+
+  test('a required parameter never becomes UNDEF', () => {
+    const [p] = EI.toParams({ params: [{ ...param, default: '12', optional: false }] });
+    expect(EI.substituteValues(query, [p], () => '')).not.toContain('UNDEF');
+    expect(EI.substituteValues(query, [p])).toContain('<https://identifiers.org/aop/12>');
+  });
+});
+
 describe('metadataHtml', () => {
   test('shows identifier, version, people with ORCID links, licence and keywords', () => {
     const html = EI.metadataHtml(example({
