@@ -175,8 +175,10 @@ def values_blocks(query, name):
 
 
 def parse_term(term, prefixes):
-    """('iri', value) or ('literal', value) for a single SPARQL term, or None."""
+    """('iri', value), ('literal', value) or ('undef', None) for a single SPARQL term, or None."""
     term = term.strip()
+    if term.upper() == "UNDEF":
+        return "undef", None
     m = re.fullmatch(r"<([^<>\s]*)>", term)
     if m:
         return "iri", m.group(1)
@@ -342,8 +344,11 @@ def parse_param(g, node, query, prefixes):
         raise ExampleError(f"parameter name {name!r} is not allowed")
     label = g.value(node, SH.name)
     default = g.value(node, SH.defaultValue)
-    if label is None or default is None:
-        raise ExampleError(f"parameter {name}: sh:name and sh:defaultValue are required")
+    if label is None:
+        raise ExampleError(f"parameter {name}: sh:name is required")
+    # Without sh:defaultValue the parameter is optional: the VALUES block holds UNDEF,
+    # and an empty field in the editor leaves the variable unbound (no constraint).
+    optional = default is None
     variable = literal_text(g.value(node, SNORQL.variable)) or name
     if not PARAM_NAME.match(variable):
         raise ExampleError(f"parameter {name}: snorql:variable {variable!r} is not a variable name")
@@ -362,7 +367,7 @@ def parse_param(g, node, query, prefixes):
     options.sort(key=lambda o: (o["_order"], o["label"].casefold()))
     for o in options:
         del o["_order"]
-    if options and str(default) not in [o["value"] for o in options]:
+    if options and not optional and str(default) not in [o["value"] for o in options]:
         raise ExampleError(f"parameter {name}: the default is not one of the options")
     order = g.value(node, SH.order)
     param = {
@@ -373,7 +378,8 @@ def parse_param(g, node, query, prefixes):
         "order": int(order) if order is not None else None,
         "kind": kind,
         "valueTemplate": template,
-        "default": str(default),
+        "default": "" if optional else str(default),
+        "optional": optional,
         "autocomplete": literal_text(g.value(node, SNORQL.autocomplete)),
         "options": options or None,
     }
@@ -384,7 +390,12 @@ def parse_param(g, node, query, prefixes):
                            f"found {len(blocks)}")
     term = parse_term(blocks[0], prefixes)
     if term is None:
-        raise ExampleError(f"parameter {name}: the VALUES block must hold one IRI or plain string")
+        raise ExampleError(f"parameter {name}: the VALUES block must hold one IRI, plain string or UNDEF")
+    if optional or term[0] == "undef":
+        if not (optional and term[0] == "undef"):
+            raise ExampleError(f"parameter {name}: a parameter without sh:defaultValue needs `VALUES ?{variable} "
+                               f"{{ UNDEF }}`, and an UNDEF block needs a parameter without sh:defaultValue")
+        return param
     expected = (kind, template.replace("{value}", encode_value(param["default"])) if template else param["default"])
     if term != expected:
         raise ExampleError(f"parameter {name}: the VALUES block holds {term[1]!r}, expected the default "
@@ -730,6 +741,8 @@ def rq_export(entry, repository, commit, category_labels):
     desc = " ".join(entry["description"].split())
     header.append(f"# description: {desc}")
     for p in entry["params"]:
+        if p.get("optional"):
+            continue  # the VALUES block keeps UNDEF, so the query runs without the parameter
         if p["options"]:
             ptype = "enum:" + ",".join(f"{o['value']}={o['label']}" for o in p["options"])
         elif p["autocomplete"]:

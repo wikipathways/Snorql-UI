@@ -10,7 +10,8 @@
  * Every example has a permanent identifier (e.g. WPQ036). The tree is built
  * from the categories in the index, and links use the identifier, so files in
  * the repository can move without breaking anything. Parameters are bound in
- * the query by a VALUES block holding the default; the editor replaces the
+ * the query by a VALUES block holding the default (UNDEF for an optional
+ * parameter, which leaves the variable unbound); the editor replaces the
  * value in that block, so the query is valid SPARQL either way.
  *
  * Everything here is pure (no DOM, no network) so it can be unit tested;
@@ -156,7 +157,8 @@
                 kind: p.kind === 'iri' ? 'iri' : 'literal',
                 valueTemplate: p.valueTemplate || null,
                 autocompleteType: p.autocomplete || null,
-                defaultValue: String(p['default']),
+                defaultValue: p.optional ? '' : String(p['default']),
+                optional: !!p.optional,
                 label: p.label || p.name,
                 description: p.description || '',
                 options: p.options && p.options.length ? p.options.map(function (o) {
@@ -179,6 +181,8 @@
     // (an enum value that is not an option, an IRI with characters IRIs cannot hold).
     function sparqlTerm(param, value) {
         value = String(value === null || value === undefined ? '' : value);
+        // An optional parameter left empty: the variable stays unbound.
+        if (param.optional && value === '') return 'UNDEF';
         if (param.options) {
             var ok = param.options.some(function (o) { return o.value === value; });
             if (!ok) return null;

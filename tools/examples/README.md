@@ -71,7 +71,9 @@ and one query (`sh:select`, `sh:ask`, `sh:construct` or `spex:describe`). Parame
 - `sh:nodeKind sh:IRI` with `snorql:valueTemplate "https://identifiers.org/wikipathways/{value}"`:
   the user's value, percent-encoded, goes into the IRI; without a template the value is a full IRI;
 - `snorql:option [ rdf:value "DataNode" ; rdfs:label "Data Nodes" ; sh:order 1 ]`: a fixed list;
-- `snorql:variable "pathway"`: the variable the `VALUES` block binds, when it is not the parameter name.
+- `snorql:variable "pathway"`: the variable the `VALUES` block binds, when it is not the parameter name;
+- no `sh:defaultValue` and `VALUES ?aop { UNDEF }`: an optional parameter. Left empty in the editor,
+  the variable stays unbound, so the query runs without that constraint (e.g. all AOPs).
 
 `shapes.ttl` is the SHACL profile of all this; `snorql_examples.py check` runs it together
 with the checks SHACL cannot express.

@@ -56,8 +56,8 @@ shapes:Parameter a sh:NodeShape ;
         sh:path sh:name ; sh:minCount 1 ; sh:maxCount 1 ;
         sh:message "A parameter needs one sh:name (its label)."
     ] , [
-        sh:path sh:defaultValue ; sh:minCount 1 ; sh:maxCount 1 ;
-        sh:message "A parameter needs one sh:defaultValue."
+        sh:path sh:defaultValue ; sh:maxCount 1 ;
+        sh:message "A parameter has at most one sh:defaultValue (none makes it optional)."
     ] , [
         sh:path sh:order ; sh:maxCount 1 ; sh:datatype xsd:integer
     ] , [

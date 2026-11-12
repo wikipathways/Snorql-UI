@@ -145,6 +145,42 @@ def test_check_finds_problems(repo, capsys, change, message):
     assert message in capsys.readouterr().err
 
 
+def optional_species(text, default=False, block="UNDEF"):
+    """The example with species as an optional parameter (no sh:defaultValue, VALUES UNDEF)."""
+    if not default:
+        text = text.replace('        sh:defaultValue "Homo sapiens" ; sh:datatype', "        sh:datatype")
+    return text.replace('VALUES ?species { "Homo sapiens" }', "VALUES ?species { " + block + " }")
+
+
+def test_optional_parameter(repo, tmp_path, capsys):
+    repo.write("A folder/first.ttl", optional_species(example()))
+    assert repo.run("check", "--no-shacl") == 0
+    repo.commit("optional species")
+    out = tmp_path / "out"
+    assert repo.run("build", "--out", str(out), "--repository", "o/r") == 0
+    e = json.loads((out / "index.json").read_text())["examples"][0]
+    p = {x["name"]: x for x in e["params"]}
+    assert p["species"]["optional"] is True and p["species"]["default"] == ""
+    assert p["pathwayId"]["optional"] is False
+    # The .rq export keeps UNDEF and has no param line for it, so old editors run it for all species.
+    rq = (out / "rq" / "A folder" / "first.rq").read_text()
+    assert "VALUES ?species { UNDEF }" in rq and "# param: species" not in rq
+    assert "# param: pathwayId" in rq
+
+
+@pytest.mark.parametrize("default,block", [(True, "UNDEF"), (False, '"Homo sapiens"')])
+def test_optional_parameter_mismatch(repo, capsys, default, block):
+    repo.write("A folder/first.ttl", optional_species(example(), default=default, block=block))
+    assert repo.run("check", "--no-shacl") == 1
+    assert "without sh:defaultValue" in capsys.readouterr().err
+
+
+def test_optional_parameter_passes_shacl(repo):
+    pytest.importorskip("pyshacl")
+    repo.write("A folder/first.ttl", optional_species(example()))
+    assert repo.run("check") == 0
+
+
 def test_duplicate_identifier(repo, capsys):
     repo.write("other.ttl", example(label="Copy"))
     assert repo.run("check", "--no-shacl") == 1
