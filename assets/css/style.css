@@ -258,6 +258,26 @@ footer p{
     width: 100%;
 }
 
+/* Phones: the 320px autocomplete field next to its label is wider than the screen, so the
+   field goes under its label and takes the full width. */
+@media (max-width: 767px) {
+    #desc-params .param-item {
+        flex-wrap: wrap;
+        max-width: 100%;
+    }
+    #desc-params .autocomplete-wrapper,
+    #desc-params .param-item .form-control {
+        min-width: 0;
+        max-width: 100%;
+    }
+    #desc-params .autocomplete-wrapper {
+        width: 100%;
+    }
+    #desc-params .autocomplete-dropdown {
+        width: auto;
+    }
+}
+
 #desc-params .param-input[data-selected-value] {
     background-color: #f5fbff;
 }
