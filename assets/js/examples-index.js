@@ -278,16 +278,21 @@
         html += ' <button type="button" class="btn btn-default btn-xs" id="desc-copy-iri" title="' + escapeHtml(entry.iri) + '">' +
             '<i class="glyphicon glyphicon-link"></i> Copy IRI</button>';
         html += '</div>';
-        var creators = (entry.creators || []).map(person);
-        var contributors = (entry.contributors || []).map(person);
-        if (creators.length) {
-            html += '<div class="example-people">By ' + creators.join(', ') +
-                (contributors.length ? '; with contributions from ' + contributors.join(', ') : '') + '</div>';
+        // Creators and contributors in one list, each person once.
+        var seen = {};
+        var people = (entry.creators || []).concat(entry.contributors || []).filter(function (p) {
+            var key = p && (p.iri || p.name);
+            if (!key || seen[key]) return false;
+            seen[key] = true;
+            return true;
+        }).map(person);
+        if (people.length) {
+            html += '<div class="example-people">By ' + people.join(', ') + '</div>';
         }
         if ((entry.federatesWith || []).length) {
-            html += '<div class="example-federated">Also queries ' + entry.federatesWith.map(function (f) {
+            html += '<div class="example-federated">Also uses data from ' + entry.federatesWith.map(function (f) {
                 return '<code>' + escapeHtml(f) + '</code>';
-            }).join(', ') + ', which can make it slower.</div>';
+            }).join(', ') + '.</div>';
         }
         if ((entry.keywords || []).length) {
             html += '<div class="example-keywords">' + entry.keywords.map(function (k) {

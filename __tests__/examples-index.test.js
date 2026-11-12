@@ -290,6 +290,26 @@ describe('metadataHtml', () => {
     expect(html).toContain('<span class="label label-info">general</span>');
   });
 
+  test('lists creators and contributors together, each person once', () => {
+    const html = EI.metadataHtml(example({
+      creators: [{ iri: 'https://orcid.org/0000-0003-2230-0840', name: 'Marvin Martens' }],
+      contributors: [
+        { iri: 'https://github.com/laurent2207', name: 'Laurent Winckers' },
+        { iri: 'https://orcid.org/0000-0003-2230-0840', name: 'Marvin Martens' }
+      ]
+    }));
+    const people = html.match(/<div class="example-people">(.*?)<\/div>/)[1];
+    expect(people).not.toMatch(/contributions/);
+    expect(people.match(/Marvin Martens/g)).toHaveLength(1);
+    expect(people.indexOf('Marvin Martens')).toBeLessThan(people.indexOf('Laurent Winckers'));
+  });
+
+  test('federated endpoints are named without a warning', () => {
+    const html = EI.metadataHtml(example({ federatesWith: ['https://query.wikidata.org/sparql'] }));
+    expect(html).toContain('Also uses data from <code>https://query.wikidata.org/sparql</code>.');
+    expect(html).not.toMatch(/slower/);
+  });
+
   test('escapes everything that comes from the index', () => {
     const html = EI.metadataHtml(example({
       id: 'WPQ001',
