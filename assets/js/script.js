@@ -197,6 +197,10 @@ jQuery(document).ready(function() {
             var query = editor.getDoc().getValue();
             query = query.trim();
 
+            // An unedited example gets a short ?example= link pinned to the version
+            // on screen; only an edited or typed query needs the full text in ?q=.
+            var exampleLink = (typeof exampleUrl === 'function') ? exampleUrl(true) : null;
+
             // Compute prefixed-query bytes against the Snorql page URL (not the
             // SPARQL endpoint URL — this is the URL the recipient's browser
             // must accept when opening the short link). Acknowledged: a query
@@ -215,7 +219,7 @@ jQuery(document).ready(function() {
                            + '?q='.length + encodedQuery.length
                            + '&endpoint='.length + encodedEndpoint.length;
 
-            if (totalBytes > maxBytes) {
+            if (!exampleLink && totalBytes > maxBytes) {
                 _showPermalinkInlineMsg(
                     'Query too long to permalink (' + totalBytes + ' bytes; limit ' + maxBytes + '). ' +
                     'Copy the query text directly to share it.',
@@ -224,8 +228,7 @@ jQuery(document).ready(function() {
                 return;
             }
 
-            var queryParam = "?q=" + encodeURIComponent(query) + "&endpoint=" + encodedEndpoint;
-            var url = permalinkBase + queryParam;
+            var url = exampleLink || (permalinkBase + "?q=" + encodeURIComponent(query) + "&endpoint=" + encodedEndpoint);
 
             var showFullLink = function(note) {
                 var $box = $('#permalink-url').empty();
@@ -255,10 +258,11 @@ jQuery(document).ready(function() {
                 },
                 data: JSON.stringify(params)
             }).done(function(data) {
-                $('#permalink-url').html("<a href=\""+data.link+"\" target=\"_blank\">"+data.link+"</a>");
+                var $box = $('#permalink-url').empty();
+                $box.append($('<a target="_blank"></a>').attr('href', data.link).text(data.link));
                 $('#permalinkModal').modal();
             }).fail(function() {
-                // Bitly rejects some long URLs. The unshortened ?q= URL is a working
+                // Bitly rejects some long URLs. The unshortened link is a working
                 // permalink too, so show that rather than no link at all.
                 showFullLink('Bitly could not shorten this link, so this is the full permalink:');
             });

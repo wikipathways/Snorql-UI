@@ -1080,25 +1080,55 @@ function hideExampleMetadata() {
     $('#desc-meta').empty().hide();
 }
 
+// ?example= link for the example on screen, or null when no example from the
+// repository is shown unedited. pinVersion: also name the version when it is the
+// current one, so the link keeps opening this query after a newer version appears.
+function exampleUrl(pinVersion) {
+    if (!(hasDeepLinks() && _currentExample && (_currentExample.path || _currentExample.id) && _panelState === 'active')) {
+        return null;
+    }
+    var version = _currentExample.version;
+    if (!version && pinVersion && _currentExample.id && _currentEntry && hasExamplesIndex() &&
+            ExamplesIndex.isVersion(_currentEntry.version)) {
+        version = _currentEntry.version;
+    }
+    var params = (_currentParams || []).map(function(p) {
+        return { name: p.name, value: readParamValue(p), defaultValue: p.defaultValue };
+    });
+    if (pinVersion) {
+        // A permalink must open the same query: without a version or a commit the link
+        // would follow the branch, and a value the link can't carry (too long, or a
+        // reserved name) would come back as the default. Use ?q= in those cases.
+        if (!version && !_currentExample.ref) return null;
+        var changed = {};
+        params.forEach(function(p) {
+            if (p.value !== null && p.value !== undefined && p.value !== p.defaultValue) changed[p.name] = p.value;
+        });
+        var accepted = DeepLinks.acceptedValues(_currentParams || [], changed);
+        var lost = Object.keys(changed).some(function(name) {
+            return DeepLinks.RESERVED.indexOf(name) !== -1 || accepted[name] !== String(changed[name]);
+        });
+        if (lost) return null;
+    }
+    return DeepLinks.buildExampleUrl(window.location.href.split('?')[0], {
+        example: _currentExample.id,
+        path: _currentExample.path,
+        version: version,
+        ref: _currentExample.ref,
+        params: params,
+        endpoint: jQuery("#endpoint").val().trim(),
+        defaultEndpoint: CONFIG.endpoint
+    });
+}
+
 // Address-bar link for the query in the editor: a short ?example= link while an
-// example from the repository is shown unedited, otherwise ?q= with the full text.
+// example from the repository is shown unedited (it follows the current version
+// unless an older one is on screen), otherwise ?q= with the full text.
 function shareUrl(query) {
+    var link = exampleUrl(false);
+    if (link) return link;
     var base = window.location.href.split('?')[0];
     var endpoint = jQuery("#endpoint").val().trim();
-    if (hasDeepLinks() && _currentExample && (_currentExample.path || _currentExample.id) && _panelState === 'active') {
-        var params = (_currentParams || []).map(function(p) {
-            return { name: p.name, value: readParamValue(p), defaultValue: p.defaultValue };
-        });
-        return DeepLinks.buildExampleUrl(base, {
-            example: _currentExample.id,
-            path: _currentExample.path,
-            version: _currentExample.version,
-            ref: _currentExample.ref,
-            params: params,
-            endpoint: endpoint,
-            defaultEndpoint: CONFIG.endpoint
-        });
-    }
     return base + "?q=" + encodeURIComponent(query) + "&endpoint=" + encodeURIComponent(endpoint);
 }
 
@@ -1134,7 +1164,8 @@ function loadIndexExampleFromUrl(link) {
             }
             return;
         }
-        if (!version && !ref) {
+        if ((!version && !ref) || (version && version === entry.version)) {
+            // The current version needs no history (permalinks pin it too).
             applyIndexExample(entry, null, link.values);
             return;
         }
