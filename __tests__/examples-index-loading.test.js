@@ -186,3 +186,44 @@ describe('?example= links with an index', () => {
     expect(sb._calls).toEqual([]);
   });
 });
+
+describe('permalinks pin the version on screen', () => {
+  function shown(state) {
+    const sb = createSandbox([OK_INDEX, OK_HISTORY]);
+    sb.window.location.href = 'https://sparql.example.org/?example=WPQ036';
+    sb._state = state;
+    vm.runInContext('CONFIG.endpoint = "https://github.com/wikipathways/SPARQLQueries";' +
+      '_currentExample = _state.example; _currentEntry = _state.entry || null;' +
+      '_panelState = _state.panel || "active"; _currentParams = [];', sb);
+    return sb;
+  }
+
+  test('current version: the permalink names it, the address bar does not', () => {
+    const sb = shown({ example: { id: 'WPQ036', version: null }, entry: ENTRY });
+    expect(vm.runInContext('exampleUrl(true)', sb)).toBe('https://sparql.example.org/?example=WPQ036&version=1.1.0');
+    expect(vm.runInContext('exampleUrl(false)', sb)).toBe('https://sparql.example.org/?example=WPQ036');
+  });
+
+  test('an older version on screen is pinned in both', () => {
+    const sb = shown({ example: { id: 'WPQ036', version: '1.0.0' }, entry: ENTRY });
+    expect(vm.runInContext('exampleUrl(true)', sb)).toBe('https://sparql.example.org/?example=WPQ036&version=1.0.0');
+    expect(vm.runInContext('exampleUrl(false)', sb)).toBe('https://sparql.example.org/?example=WPQ036&version=1.0.0');
+  });
+
+  test('an edited query has no example link, so the permalink falls back to ?q=', () => {
+    const sb = shown({ example: { id: 'WPQ036', version: null }, entry: ENTRY, panel: 'stale' });
+    expect(vm.runInContext('exampleUrl(true)', sb)).toBeNull();
+    expect(vm.runInContext('shareUrl("SELECT 1 {}")', sb)).toMatch(/\?q=SELECT%201%20%7B%7D&endpoint=/);
+  });
+
+  test('an .rq example has no versions: the link keeps its path and ref only', () => {
+    const sb = shown({ example: { path: 'D. General/GenesofPathway.rq', ref: 'c0ffee1' } });
+    expect(vm.runInContext('exampleUrl(true)', sb))
+      .toBe('https://sparql.example.org/?example=D.%20General/GenesofPathway.rq&ref=c0ffee1');
+  });
+
+  test('the Get Permalink handler uses the pinned example link', () => {
+    const scriptSrc = fs.readFileSync(path.join(__dirname, '../assets/js/script.js'), 'utf8');
+    expect(scriptSrc).toMatch(/exampleUrl\(true\)/);
+  });
+});

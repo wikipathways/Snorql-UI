@@ -1080,25 +1080,39 @@ function hideExampleMetadata() {
     $('#desc-meta').empty().hide();
 }
 
+// ?example= link for the example on screen, or null when no example from the
+// repository is shown unedited. pinVersion: also name the version when it is the
+// current one, so the link keeps opening this query after a newer version appears.
+function exampleUrl(pinVersion) {
+    if (!(hasDeepLinks() && _currentExample && (_currentExample.path || _currentExample.id) && _panelState === 'active')) {
+        return null;
+    }
+    var version = _currentExample.version;
+    if (!version && pinVersion && _currentExample.id && _currentEntry && _currentEntry.version) {
+        version = _currentEntry.version;
+    }
+    var params = (_currentParams || []).map(function(p) {
+        return { name: p.name, value: readParamValue(p), defaultValue: p.defaultValue };
+    });
+    return DeepLinks.buildExampleUrl(window.location.href.split('?')[0], {
+        example: _currentExample.id,
+        path: _currentExample.path,
+        version: version,
+        ref: _currentExample.ref,
+        params: params,
+        endpoint: jQuery("#endpoint").val().trim(),
+        defaultEndpoint: CONFIG.endpoint
+    });
+}
+
 // Address-bar link for the query in the editor: a short ?example= link while an
-// example from the repository is shown unedited, otherwise ?q= with the full text.
+// example from the repository is shown unedited (it follows the current version
+// unless an older one is on screen), otherwise ?q= with the full text.
 function shareUrl(query) {
+    var link = exampleUrl(false);
+    if (link) return link;
     var base = window.location.href.split('?')[0];
     var endpoint = jQuery("#endpoint").val().trim();
-    if (hasDeepLinks() && _currentExample && (_currentExample.path || _currentExample.id) && _panelState === 'active') {
-        var params = (_currentParams || []).map(function(p) {
-            return { name: p.name, value: readParamValue(p), defaultValue: p.defaultValue };
-        });
-        return DeepLinks.buildExampleUrl(base, {
-            example: _currentExample.id,
-            path: _currentExample.path,
-            version: _currentExample.version,
-            ref: _currentExample.ref,
-            params: params,
-            endpoint: endpoint,
-            defaultEndpoint: CONFIG.endpoint
-        });
-    }
     return base + "?q=" + encodeURIComponent(query) + "&endpoint=" + encodeURIComponent(endpoint);
 }
 
