@@ -222,6 +222,45 @@ describe('permalinks pin the version on screen', () => {
       .toBe('https://sparql.example.org/?example=D.%20General/GenesofPathway.rq&ref=c0ffee1');
   });
 
+  test('an .rq example from the tree (no ref) gets no example permalink: ?q= instead', () => {
+    const sb = shown({ example: { path: 'D. General/GenesofPathway.rq', ref: null } });
+    expect(vm.runInContext('exampleUrl(true)', sb)).toBeNull();
+    expect(vm.runInContext('exampleUrl(false)', sb)).toBe('https://sparql.example.org/?example=D.%20General/GenesofPathway.rq');
+  });
+
+  test('changed parameter values and another endpoint are kept', () => {
+    const sb = shown({ example: { id: 'WPQ036', version: null }, entry: ENTRY });
+    vm.runInContext('_currentParams = [{ name: "pathwayId", defaultValue: "WP1" }];' +
+      'readParamValue = function () { return "WP254"; };' +
+      'jQuery = function () { return { val: function () { return " https://other.example/sparql "; } }; };', sb);
+    expect(vm.runInContext('exampleUrl(true)', sb)).toBe('https://sparql.example.org/?example=WPQ036&version=1.1.0' +
+      '&pathwayId=WP254&endpoint=https%3A%2F%2Fother.example%2Fsparql');
+  });
+
+  test('a value the link cannot carry makes the permalink fall back to ?q=', () => {
+    const sb = shown({ example: { id: 'WPQ036', version: null }, entry: ENTRY });
+    vm.runInContext('_currentParams = [{ name: "pathwayId", defaultValue: "WP1" }];' +
+      'readParamValue = function () { return "x".repeat(600); };', sb);
+    expect(vm.runInContext('exampleUrl(true)', sb)).toBeNull();
+    vm.runInContext('_currentParams = [{ name: "version", defaultValue: "a" }];' +
+      'readParamValue = function () { return "b"; };', sb);
+    expect(vm.runInContext('exampleUrl(true)', sb)).toBeNull();
+  });
+
+  test('an entry without a valid version gets no pinned link', () => {
+    const sb = shown({ example: { id: 'WPQ036', version: null }, entry: Object.assign({}, ENTRY, { version: 'v1' }) });
+    expect(vm.runInContext('exampleUrl(true)', sb)).toBeNull();
+  });
+
+  test('a link pinned to the current version opens without the history', () => {
+    const sb = createSandbox([OK_INDEX], '?example=WPQ036&version=1.1.0');
+    vm.runInContext('loadExampleFromUrl()', sb);
+    expect(sb.applyIndexExample).toHaveBeenCalledTimes(1);
+    expect(sb.applyIndexExample.mock.calls[0][1]).toBeNull();
+    expect(sb.loadIndexVersion).not.toHaveBeenCalled();
+    expect(sb._calls.some((u) => /history\.json/.test(u))).toBe(false);
+  });
+
   test('the Get Permalink handler uses the pinned example link', () => {
     const scriptSrc = fs.readFileSync(path.join(__dirname, '../assets/js/script.js'), 'utf8');
     expect(scriptSrc).toMatch(/exampleUrl\(true\)/);

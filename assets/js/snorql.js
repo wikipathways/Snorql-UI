@@ -1088,12 +1088,28 @@ function exampleUrl(pinVersion) {
         return null;
     }
     var version = _currentExample.version;
-    if (!version && pinVersion && _currentExample.id && _currentEntry && _currentEntry.version) {
+    if (!version && pinVersion && _currentExample.id && _currentEntry && hasExamplesIndex() &&
+            ExamplesIndex.isVersion(_currentEntry.version)) {
         version = _currentEntry.version;
     }
     var params = (_currentParams || []).map(function(p) {
         return { name: p.name, value: readParamValue(p), defaultValue: p.defaultValue };
     });
+    if (pinVersion) {
+        // A permalink must open the same query: without a version or a commit the link
+        // would follow the branch, and a value the link can't carry (too long, or a
+        // reserved name) would come back as the default. Use ?q= in those cases.
+        if (!version && !_currentExample.ref) return null;
+        var changed = {};
+        params.forEach(function(p) {
+            if (p.value !== null && p.value !== undefined && p.value !== p.defaultValue) changed[p.name] = p.value;
+        });
+        var accepted = DeepLinks.acceptedValues(_currentParams || [], changed);
+        var lost = Object.keys(changed).some(function(name) {
+            return DeepLinks.RESERVED.indexOf(name) !== -1 || accepted[name] !== String(changed[name]);
+        });
+        if (lost) return null;
+    }
     return DeepLinks.buildExampleUrl(window.location.href.split('?')[0], {
         example: _currentExample.id,
         path: _currentExample.path,
@@ -1148,7 +1164,8 @@ function loadIndexExampleFromUrl(link) {
             }
             return;
         }
-        if (!version && !ref) {
+        if ((!version && !ref) || (version && version === entry.version)) {
+            // The current version needs no history (permalinks pin it too).
             applyIndexExample(entry, null, link.values);
             return;
         }

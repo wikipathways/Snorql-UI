@@ -258,10 +258,11 @@ jQuery(document).ready(function() {
                 },
                 data: JSON.stringify(params)
             }).done(function(data) {
-                $('#permalink-url').html("<a href=\""+data.link+"\" target=\"_blank\">"+data.link+"</a>");
+                var $box = $('#permalink-url').empty();
+                $box.append($('<a target="_blank"></a>').attr('href', data.link).text(data.link));
                 $('#permalinkModal').modal();
             }).fail(function() {
-                // Bitly rejects some long URLs. The unshortened ?q= URL is a working
+                // Bitly rejects some long URLs. The unshortened link is a working
                 // permalink too, so show that rather than no link at all.
                 showFullLink('Bitly could not shorten this link, so this is the full permalink:');
             });
