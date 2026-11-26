@@ -2030,8 +2030,52 @@ function nodeToHTML(node, linkMaker) {
     return document.createTextNode('???');
 }
 
+// Name for a file of downloaded results. While an example is on screen unedited (the same
+// rule as exampleUrl), the name says which query and version made it, for example
+// WPQ036_v1.1.0_genes-of-a-pathway.tsv, or the file name for an .rq example. Otherwise it
+// is snorql_<local date and time>.<ext>.
+function downloadFilename(ext, now) {
+    var parts = [];
+    if (_currentExample && _panelState === 'active') {
+        if (_currentExample.id) {
+            parts.push(filenamePart(_currentExample.id));
+            var version = _currentExample.version || (_currentEntry && _currentEntry.version);
+            if (hasExamplesIndex() && ExamplesIndex.isVersion(version)) parts.push('v' + version);
+            if (_currentEntry && _currentEntry.label) parts.push(filenamePart(_currentEntry.label, 40).toLowerCase());
+        } else if (_currentExample.path) {
+            parts.push(filenamePart(_currentExample.path.split('/').pop().replace(/\.rq$/i, ''), 60));
+        }
+    }
+    parts = parts.filter(function(part) { return part; });
+    if (parts.length === 0) parts = ['snorql', localTimestamp(now || new Date())];
+    return parts.join('_') + '.' + ext;
+}
+
+// text with everything but letters, digits and dots turned into single hyphens (accents
+// dropped), cut at a hyphen to at most maxLength characters.
+function filenamePart(text, maxLength) {
+    var part = String(text).normalize('NFKD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^A-Za-z0-9.]+/g, '-').replace(/^[-.]+|[-.]+$/g, '');
+    if (maxLength && part.length > maxLength) {
+        part = part.slice(0, maxLength);
+        var cut = part.lastIndexOf('-');
+        if (cut > maxLength / 2) part = part.slice(0, cut);
+        part = part.replace(/[-.]+$/, '');
+    }
+    return part;
+}
+
+// 2026-11-26_14-05-09 in the browser's time zone.
+function localTimestamp(date) {
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) + '_' +
+        pad(date.getHours()) + '-' + pad(date.getMinutes()) + '-' + pad(date.getSeconds());
+}
+
 function exportResults(url, sparql, type, output) {
 
+    // Named now, not when the results arrive: another example may be on screen by then.
+    var filename = downloadFilename(type);
     service = new SPARQL.Service(url);
     var _phase9Prefixed = prepareQueryForSend(sparql);   // RELIAB-03: compute once for chooseMethod + service.query (declare-once-reuse-twice)
     service.setMethod(chooseMethod(url, _phase9Prefixed));
@@ -2051,39 +2095,39 @@ function exportResults(url, sparql, type, output) {
     }
 
     service.query(_phase9Prefixed, {
-            success: function(json) { renderOutput(json, type); },
+            success: function(json) { renderOutput(json, type, filename); },
             failure: onExportFailure
     });
 }
 
-function renderOutput(results, type){
+function renderOutput(results, type, filename){
 
     if(type === 'csv'){
-        exportCSV(results);
+        exportCSV(results, filename);
     }else if(type === 'json'){
 
         var download_link = document.createElement('a');
         download_link.setAttribute('href', 'data:text/csv;charset=utf8,' + encodeURIComponent(JSON.stringify(results)));
-        download_link.setAttribute('download', "snorql-json-"+(new Date().getTime() / 1000)+".json");
+        download_link.setAttribute('download', filename || downloadFilename('json'));
         download_link.click();
 
     }else if(type === 'tsv'){
 
         var download_link = document.createElement('a');
         download_link.setAttribute('href', 'data:text/tab-separated-values;charset=utf8,' + encodeURIComponent(results));
-        download_link.setAttribute('download', "snorql-tsv-"+(new Date().getTime() / 1000)+".tsv");
+        download_link.setAttribute('download', filename || downloadFilename('tsv'));
         download_link.click();
 
     }else if(type === 'xml'){
 
         var download_link = document.createElement('a');
         download_link.setAttribute('href', 'data:text/xml;charset=utf8,' + encodeURIComponent(results));
-        download_link.setAttribute('download', "snorql-xml-"+(new Date().getTime() / 1000)+".xml");
+        download_link.setAttribute('download', filename || downloadFilename('xml'));
         download_link.click();
     }
 }
 
-function exportCSV(json){
+function exportCSV(json, filename){
 
     if (typeof json !== 'undefined') {
 
@@ -2125,7 +2169,7 @@ function exportCSV(json){
 
         var download_link = document.createElement('a');
         download_link.setAttribute('href', 'data:text/csv;charset=utf8,' + encodeURIComponent(csv));
-        download_link.setAttribute('download', "snorql-csv-"+(new Date().getTime() / 1000)+".csv");
+        download_link.setAttribute('download', filename || downloadFilename('csv'));
         download_link.click();
 
     }else{
