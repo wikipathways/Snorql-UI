@@ -146,16 +146,19 @@ describe.each([
   ['B. Communities/communityPathways.rq', 'wp:Pathway'],
   ['B. Communities/communityProteins.rq', 'wp:Protein']
 ])('TMPL-05: %s', (OLD, type) => {
-  test('community autocompletes from the community list, default AOP', () => {
+  // The index is the live one, so check that the default and the VALUES block agree rather
+  // than naming a community: the examples repository changes defaults (AOP became CPTAC
+  // for communityProteins in wikipathways/SPARQLQueries#38).
+  test('community autocompletes from the community list, with a default', () => {
     const { param } = lookup(OLD, 'community');
     expect(param.type).toBe('autocomplete');
     expect(param.autocompleteType).toBe('community');
-    expect(param.defaultValue).toBe('AOP');
+    expect(param.defaultValue).toMatch(/^[A-Za-z0-9_-]+$/);
   });
 
   test('the value becomes a wp#Curation: tag in the VALUES block', () => {
-    const { entry } = lookup(OLD, 'community');
-    expect(valuesBlock(entry.query, 'community')).toBe(`<${WP}Curation:AOP>`);
+    const { entry, param } = lookup(OLD, 'community');
+    expect(valuesBlock(entry.query, 'community')).toBe(`<${WP}Curation:${param.defaultValue}>`);
     expect(valuesBlock(withValue(entry, 'Lipids'), 'community')).toBe(`<${WP}Curation:Lipids>`);
   });
 
