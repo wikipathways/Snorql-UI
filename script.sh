@@ -101,6 +101,16 @@ if [[ -n "${SNORQL_SEND_PREFIX_BLOCK}" ]]; then
   esac
 fi
 
+# SNORQL_SMILES_RENDERER=true shows SMILES strings in a result column named ?smilesDepict as
+# structure images (CDK Depict). renderers.enableSMILESRenderer is nested in config.js, so it is
+# matched at the 8-space indent; keep it on a single line.
+if [[ -n "${SNORQL_SMILES_RENDERER}" ]]; then
+  case "${SNORQL_SMILES_RENDERER}" in
+    true|false) sed -i "s#^\(        enableSMILESRenderer: \)[^,]*#\1${SNORQL_SMILES_RENDERER}#" "$CONFIG_FILE" ;;
+    *) echo "SNORQL_SMILES_RENDERER must be true or false, ignored" ;;
+  esac
+fi
+
 # Set-but-empty disables link shortening, so test for "is set" rather than "non-empty".
 if [[ -v SNORQL_BITLY_TOKEN ]]; then
   set_string bitlyToken "${SNORQL_BITLY_TOKEN}"

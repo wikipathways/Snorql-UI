@@ -50,3 +50,26 @@ describe('script.sh head-extra.html', () => {
     expect(runScript(dir)).toBe(before);
   });
 });
+
+describe('script.sh SNORQL_SMILES_RENDERER', () => {
+  function configAfter(value) {
+    const dir = htdocs(false);
+    const env = { PATH: process.env.PATH, SNORQL_HTDOCS: dir };
+    if (value !== undefined) env.SNORQL_SMILES_RENDERER = value;
+    execFileSync('bash', [path.join(ROOT, 'script.sh')], { env, stdio: 'pipe' });
+    return fs.readFileSync(path.join(dir, 'assets', 'js', 'config.js'), 'utf8');
+  }
+  const original = fs.readFileSync(path.join(ROOT, 'assets', 'js', 'config.js'), 'utf8');
+
+  test('true switches the nested renderer flag on and nothing else', () => {
+    const config = configAfter('true');
+    expect(config).toMatch(/^ {8}enableSMILESRenderer: true$/m);
+    expect(config).toMatch(/^ {8}enableSVGRenderer: false,$/m);
+    expect(config.replace('enableSMILESRenderer: true', 'enableSMILESRenderer: false')).toBe(original);
+  });
+
+  test('unset or invalid values leave config.js alone', () => {
+    expect(configAfter(undefined)).toBe(original);
+    expect(configAfter('yes')).toBe(original);
+  });
+});
