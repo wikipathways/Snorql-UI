@@ -78,6 +78,9 @@ services:
       - SNORQL_QUERY_TIMEOUT_MS=${SNORQL_QUERY_TIMEOUT_MS:-}
       - SNORQL_MAX_GET_URL_BYTES=${SNORQL_MAX_GET_URL_BYTES:-}
       - SNORQL_SEND_PREFIX_BLOCK=${SNORQL_SEND_PREFIX_BLOCK:-}
+
+      # Draw ?smilesDepict columns as chemical structures (see .env.example)
+      - SNORQL_SMILES_RENDERER=${SNORQL_SMILES_RENDERER:-}
     ports:
       # Snorql web interface
       - "${SNORQL_PORT:-8088}:80"

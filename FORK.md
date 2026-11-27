@@ -192,6 +192,7 @@ The `.env` file controls Docker deployment settings. Copy `.env.example` to `.en
 | `SNORQL_EXAMPLES_BRANCH` | `master` | Branch of the examples repository. |
 | `WELCOME_TITLE`, `WELCOME_MESSAGE` | (config.js) | Welcome panel heading and HTML message. |
 | `SNORQL_QUERY_TIMEOUT_MS`, `SNORQL_MAX_GET_URL_BYTES`, `SNORQL_SEND_PREFIX_BLOCK` | (config.js) | Reliability settings, see below. |
+| `SNORQL_SMILES_RENDERER` | (config.js, `false`) | `true` shows SMILES in a result column named `?smilesDepict` as structure images via CDK Depict. |
 | `SNORQL_BITLY_TOKEN` | (config.js) | Bitly token for short permalinks; set it empty to disable shortening. |
 | `VIRTUOSO_PASSWORD` | `dba123` | Virtuoso admin password. Change this for production. |
 | `VIRTUOSO_HTTP_PORT` | `8890` | Virtuoso HTTP and SPARQL endpoint port. |
